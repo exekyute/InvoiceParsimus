@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SortimusMaximus — Personal Ledger</title>
+
+<!-- ============================================================
+     DEPENDENCIES
+     Tailwind CDN for utility classes + Google Fonts for typography.
+     Inter handles UI text; JetBrains Mono is reserved for numeric
+     values (balances, counters) to give the fintech feel.
+============================================================ -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- ============================================================
+     CUSTOM STYLES
+     A small layer of CSS that Tailwind doesn't cover natively:
+     font wiring, decorative backdrop grid, keyframe animations
+     (pulse + shimmer), scrollbar theming, and interactive
+     micro-effects on cards and the dropzone.
+============================================================ -->
+<style>
+  /* --- Base typography + color scheme --- */
+  :root { color-scheme: dark; }
+  html, body { font-family: 'Inter', system-ui, sans-serif; }
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* --- Decorative grid backdrop (masked to fade out) --- */
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 36px 36px;
+    mask-image: radial-gradient(ellipse at top, rgba(0,0,0,0.9), transparent 70%);
+    -webkit-mask-image: radial-gradient(ellipse at top, rgba(0,0,0,0.9), transparent 70%);
+  }
+
+  /* --- Animations: status dot + skeleton row shimmer --- */
+  @keyframes pulse-dot { 0%,100% { opacity: 1; transform: scale(1);} 50% { opacity: .35; transform: scale(.85);} }
+  .pulse-dot { animation: pulse-dot 2.2s ease-in-out infinite; }
+
+  @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+  .shimmer {
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+  }
+
+  /* --- Themed scrollbar to match the dark surface --- */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 8px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
+
+  /* --- Micro-interactions: stat card lift + dropzone stripes --- */
+  .card { transition: transform .25s ease, border-color .25s ease, background .25s ease; }
+  .card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.12); }
+
+  .dropzone-stripes {
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(139,92,246,0.04) 0,
+      rgba(139,92,246,0.04) 10px,
+      transparent 10px,
+      transparent 20px
+    );
+  }
+</style>
+</head>
+<body class="bg-slate-950 text-zinc-100 antialiased min-h-screen relative overflow-x-hidden">
+
+<!-- ============================================================
+     AMBIENT BACKDROP
+     Three blurred color orbs (violet / sky / fuchsia) layered
+     behind everything, plus the masked grid. Pointer-events
+     disabled so it never intercepts clicks. This is what gives
+     the page its "fintech" atmospheric depth.
+============================================================ -->
+<div class="fixed inset-0 pointer-events-none -z-10">
+  <div class="absolute -top-40 -left-32 w-[34rem] h-[34rem] rounded-full bg-violet-600/15 blur-3xl"></div>
+  <div class="absolute top-1/3 -right-32 w-[30rem] h-[30rem] rounded-full bg-sky-600/10 blur-3xl"></div>
+  <div class="absolute bottom-0 left-1/3 w-[28rem] h-[28rem] rounded-full bg-fuchsia-600/10 blur-3xl"></div>
+  <div class="absolute inset-0 bg-grid"></div>
+</div>
+
+<!-- ============================================================
+     HEADER
+     Sticky top bar with three zones:
+       1. Brand cluster (logo + product name + version)
+       2. Primary nav (Dashboard / Transactions / Reports / Rules)
+       3. Utility cluster (sync status pill, notifications, avatar)
+     Uses backdrop-blur so it floats above the ambient backdrop.
+============================================================ -->
+<header class="sticky top-0 z-40 border-b border-white/5 bg-slate-950/70 backdrop-blur-xl">
+  <div class="max-w-7xl mx-auto px-6 py-3.5 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="relative w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 via-indigo-500 to-fuchsia-500 flex items-center justify-center shadow-lg shadow-violet-500/30">
+        <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 6h13"/><path d="M3 12h9"/><path d="M3 18h5"/>
+          <path d="M16 4l4 4-4 4"/><path d="M20 14l-4 4 4 4"/>
+        </svg>
+      </div>
+      <div class="leading-tight">
+        <h1 class="font-semibold tracking-tight text-[15px]">SortimusMaximus</h1>
+        <p class="text-[11px] text-zinc-500">Personal Ledger · v0.1</p>
+      </div>
+    </div>
+
+    <nav class="hidden md:flex items-center gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/5">
+      <a class="px-3.5 py-1.5 text-sm rounded-lg bg-white/[0.06] text-white border border-white/10">Dashboard</a>
+      <a class="px-3.5 py-1.5 text-sm rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] cursor-pointer">Transactions</a>
+      <a class="px-3.5 py-1.5 text-sm rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] cursor-pointer">Reports</a>
+      <a class="px-3.5 py-1.5 text-sm rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] cursor-pointer">Rules</a>
+    </nav>
+
+    <div class="flex items-center gap-2">
+      <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+        <span class="relative flex w-1.5 h-1.5">
+          <span class="absolute inset-0 rounded-full bg-emerald-400 pulse-dot"></span>
+        </span>
+        <span class="text-[11px] font-medium tracking-wide text-emerald-300">SYNCED</span>
+      </div>
+      <button class="w-9 h-9 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-zinc-100 transition">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+      </button>
+      <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-zinc-700 to-zinc-900 border border-white/10 flex items-center justify-center text-xs font-semibold text-zinc-300">AM</div>
+    </div>
+  </div>
+</header>
+
+<!-- ============================================================
+     MAIN CONTENT
+     A single max-width column that stacks four sections vertically
+     with consistent spacing: title row → stat cards → dropzone →
+     ledger. Everything below lives inside this container.
+============================================================ -->
+<main class="max-w-7xl mx-auto px-6 py-10 space-y-8">
+
+  <!-- ============================================================
+       TITLE ROW
+       Page heading + supporting copy on the left, primary actions
+       (Export + New entry) on the right. Collapses to stacked
+       layout on small screens via flex-col / sm:flex-row.
+  ============================================================ -->
+  <section class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+    <div>
+      <p class="text-xs uppercase tracking-[0.18em] text-zinc-500 mb-2">Overview</p>
+      <h2 class="text-3xl sm:text-4xl font-bold tracking-tight">Your financial pulse</h2>
+      <p class="text-sm text-zinc-400 mt-1.5">Import a statement to start categorizing, sorting, and analyzing.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button class="px-4 py-2 text-sm rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-zinc-200 transition flex items-center gap-2">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+      <button class="px-4 py-2 text-sm font-medium rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 hover:from-violet-400 hover:to-indigo-500 text-white transition shadow-lg shadow-violet-500/25 flex items-center gap-2">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New entry
+      </button>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       STATS CARDS
+       Responsive 1 / 2 / 4-column grid of summary metric cards:
+         • Net Balance (violet)
+         • Inflows     (emerald)
+         • Outflows    (rose)
+         • Transactions count (sky)
+       Each card follows the same template: colored icon chip +
+       label, large mono value with em-dash placeholders, footer
+       meta line, and a corner color blur for depth. Hook these
+       values up to real totals in v2.
+  ============================================================ -->
+  <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+    <!-- Net Balance -->
+    <div class="card relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-900/40 border border-white/5 p-5">
+      <div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-violet-500/10 blur-2xl"></div>
+      <div class="relative">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-violet-500/15 border border-violet-500/20 flex items-center justify-center text-violet-300">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            </div>
+            <span class="text-xs uppercase tracking-wider text-zinc-500">Net Balance</span>
+          </div>
+          <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/5 text-zinc-400">CAD</span>
+        </div>
+        <div class="font-mono tabular text-3xl font-semibold text-white">$<span class="text-zinc-500">—,———.——</span></div>
+        <div class="mt-3 flex items-center gap-1.5 text-xs text-zinc-500">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Awaiting import
+        </div>
+      </div>
+    </div>
+
+    <!-- Income -->
+    <div class="card relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-900/40 border border-white/5 p-5">
+      <div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-emerald-500/10 blur-2xl"></div>
+      <div class="relative">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center text-emerald-300">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg>
+            </div>
+            <span class="text-xs uppercase tracking-wider text-zinc-500">Inflows</span>
+          </div>
+          <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300">30D</span>
+        </div>
+        <div class="font-mono tabular text-3xl font-semibold text-white">$<span class="text-zinc-500">—,———.——</span></div>
+        <div class="mt-3 flex items-center gap-1.5 text-xs text-zinc-500">
+          <span class="text-emerald-400/60">▲</span> No data yet
+        </div>
+      </div>
+    </div>
+
+    <!-- Expenses -->
+    <div class="card relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-900/40 border border-white/5 p-5">
+      <div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-rose-500/10 blur-2xl"></div>
+      <div class="relative">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-rose-500/15 border border-rose-500/20 flex items-center justify-center text-rose-300">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
+            </div>
+            <span class="text-xs uppercase tracking-wider text-zinc-500">Outflows</span>
+          </div>
+          <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300">30D</span>
+        </div>
+        <div class="font-mono tabular text-3xl font-semibold text-white">$<span class="text-zinc-500">—,———.——</span></div>
+        <div class="mt-3 flex items-center gap-1.5 text-xs text-zinc-500">
+          <span class="text-rose-400/60">▼</span> No data yet
+        </div>
+      </div>
+    </div>
+
+    <!-- Transactions count -->
+    <div class="card relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-900/40 border border-white/5 p-5">
+      <div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-sky-500/10 blur-2xl"></div>
+      <div class="relative">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/20 flex items-center justify-center text-sky-300">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </div>
+            <span class="text-xs uppercase tracking-wider text-zinc-500">Transactions</span>
+          </div>
+          <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/5 text-zinc-400">TOTAL</span>
+        </div>
+        <div class="font-mono tabular text-3xl font-semibold text-white">0<span class="text-zinc-600 text-2xl ml-1">/ 0</span></div>
+        <div class="mt-3 flex items-center gap-1.5 text-xs text-zinc-500">
+          0 categorized
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       DROPZONE
+       Statement import area. Header strip on top advertises the
+       supported formats; the dashed panel below is the click /
+       drag-and-drop target. Diagonal violet stripes signal the
+       idle state, and the panel glows violet on hover. Wire a
+       file input + drag listeners to this in v2.
+  ============================================================ -->
+  <section>
+    <div class="flex items-center justify-between mb-3">
+      <div>
+        <h3 class="text-sm font-semibold text-zinc-200">Import statement</h3>
+        <p class="text-xs text-zinc-500">Drop a file or browse to begin reconciliation.</p>
+      </div>
+      <div class="hidden sm:flex items-center gap-2 text-xs text-zinc-500">
+        <span class="px-2 py-1 rounded-md bg-white/[0.03] border border-white/5 font-mono">CSV</span>
+        <span class="px-2 py-1 rounded-md bg-white/[0.03] border border-white/5 font-mono">OFX</span>
+        <span class="px-2 py-1 rounded-md bg-white/[0.03] border border-white/5 font-mono">QIF</span>
+        <span class="px-2 py-1 rounded-md bg-white/[0.03] border border-white/5 font-mono">XLSX</span>
+      </div>
+    </div>
+
+    <div class="relative rounded-2xl border-2 border-dashed border-white/10 hover:border-violet-400/40 bg-zinc-900/30 dropzone-stripes transition-all group cursor-pointer">
+      <div class="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent"></div>
+      <div class="flex flex-col items-center text-center px-6 py-14">
+        <div class="relative w-20 h-20 mb-5">
+          <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-500/20 to-indigo-500/10 border border-white/5 group-hover:from-violet-500/30 group-hover:to-indigo-500/20 transition"></div>
+          <div class="absolute inset-0 flex items-center justify-center text-violet-300 group-hover:scale-105 transition">
+            <svg class="w-9 h-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+        </div>
+        <h3 class="text-lg font-semibold text-zinc-100">Drop your statement here</h3>
+        <p class="text-sm text-zinc-500 mt-1.5 max-w-sm">We'll parse, deduplicate, and sort entries into your ledger automatically.</p>
+        <div class="mt-5 flex items-center gap-3">
+          <button class="px-4 py-2 text-sm font-medium rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 transition flex items-center gap-2">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+            Browse files
+          </button>
+          <span class="text-xs text-zinc-600">or paste from clipboard</span>
+        </div>
+        <p class="text-[11px] text-zinc-600 mt-6 font-mono">Max 50 MB · End-to-end encrypted</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       LEDGER
+       The main data surface, composed of four stacked parts:
+         1. Toolbar  — title, entry count, search, filter, sort
+         2. Table    — column headers (Date / Description /
+                       Category / Account / Amount / Balance) +
+                       an empty-state row and decorative shimmer
+                       skeleton rows used until data is loaded
+         3. Pagination — page count + prev/next controls
+       In v2 the empty-state row and skeleton rows are replaced
+       by real <tr> entries rendered from parsed transactions.
+  ============================================================ -->
+  <section class="rounded-2xl bg-zinc-900/50 border border-white/5 overflow-hidden">
+
+    <!-- Toolbar -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 border-b border-white/5">
+      <div class="flex items-center gap-3">
+        <h3 class="font-semibold text-zinc-100">Ledger</h3>
+        <span class="text-[11px] font-mono px-2 py-0.5 rounded-md bg-white/5 border border-white/5 text-zinc-400">0 entries</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="relative">
+          <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input placeholder="Search transactions…" class="bg-white/[0.04] border border-white/10 rounded-lg pl-9 pr-3 py-1.5 text-sm w-56 placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/40 focus:bg-white/[0.06] transition">
+        </div>
+        <button class="px-3 py-1.5 text-sm rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition flex items-center gap-1.5 text-zinc-300">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          Filter
+        </button>
+        <button class="px-3 py-1.5 text-sm rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 transition flex items-center gap-1.5 text-zinc-300">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+          Sort
+        </button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-[11px] uppercase tracking-wider text-zinc-500 bg-white/[0.015]">
+            <th class="px-5 py-3 text-left font-medium w-10">
+              <div class="w-4 h-4 rounded border border-white/10 bg-white/[0.03]"></div>
+            </th>
+            <th class="px-5 py-3 text-left font-medium">Date</th>
+            <th class="px-5 py-3 text-left font-medium">Description</th>
+            <th class="px-5 py-3 text-left font-medium">Category</th>
+            <th class="px-5 py-3 text-left font-medium">Account</th>
+            <th class="px-5 py-3 text-right font-medium">Amount</th>
+            <th class="px-5 py-3 text-right font-medium">Balance</th>
+            <th class="px-5 py-3 w-10"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Empty state -->
+          <tr>
+            <td colspan="8" class="px-6 py-20">
+              <div class="flex flex-col items-center text-center">
+                <div class="relative w-14 h-14 mb-4">
+                  <div class="absolute inset-0 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center text-zinc-500">
+                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  </div>
+                </div>
+                <h4 class="font-medium text-zinc-200">No transactions yet</h4>
+                <p class="text-sm text-zinc-500 mt-1 max-w-xs">Drop a statement above and your entries will appear here, sorted and ready.</p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Placeholder shimmer rows (idle skeleton, decorative only) -->
+          <tr class="border-t border-white/5">
+            <td class="px-5 py-3.5"><div class="w-4 h-4 rounded border border-white/5 bg-white/[0.02]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-20 rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-40 rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-24 rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-20 rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-16 ml-auto rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-16 ml-auto rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"></td>
+          </tr>
+          <tr class="border-t border-white/5">
+            <td class="px-5 py-3.5"><div class="w-4 h-4 rounded border border-white/5 bg-white/[0.02]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-20 rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-32 rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-28 rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-20 rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-16 ml-auto rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-16 ml-auto rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"></td>
+          </tr>
+          <tr class="border-t border-white/5">
+            <td class="px-5 py-3.5"><div class="w-4 h-4 rounded border border-white/5 bg-white/[0.02]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-20 rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-48 rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-24 rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-20 rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-16 ml-auto rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"><div class="h-3 w-16 ml-auto rounded shimmer bg-white/[0.03]"></div></td>
+            <td class="px-5 py-3.5"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="flex items-center justify-between px-5 py-3 border-t border-white/5 text-xs">
+      <span class="text-zinc-500">Showing <span class="font-mono text-zinc-400">0</span> of <span class="font-mono text-zinc-400">0</span> entries</span>
+      <div class="flex items-center gap-1">
+        <button class="px-2.5 py-1 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-white/5 transition flex items-center gap-1">
+          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Prev
+        </button>
+        <span class="px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/5 font-mono text-zinc-400">1</span>
+        <button class="px-2.5 py-1 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-white/5 transition flex items-center gap-1">
+          Next
+          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============================================================
+     FOOTER
+     Thin closing strip: copyright line on the left, version and
+     "local-only" tag on the right (mono font to echo the data
+     elsewhere on the page).
+============================================================ -->
+<footer class="border-t border-white/5 mt-12">
+  <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-zinc-500">
+    <div class="flex items-center gap-2">
+      <div class="w-1.5 h-1.5 rounded-full bg-violet-500"></div>
+      <span>SortimusMaximus &copy; 2026 · Built for clarity</span>
+    </div>
+    <div class="flex items-center gap-4 font-mono">
+      <span>v0.1.0-shell</span>
+      <span class="text-zinc-600">·</span>
+      <span>local-only</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
