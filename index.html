@@ -17,6 +17,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Datalabels plugin lets the pie chart show vendor name + % outside each slice even without hovering. -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 
 <style>
   :root { color-scheme: dark; }
@@ -42,6 +44,77 @@
   }
   @keyframes spin { 100% { transform: rotate(360deg); } }
   .spinner { animation: spin 1s linear infinite; }
+
+  /* Sticky totals row at the bottom of the table.
+     position: sticky keeps it pinned while I scroll through long invoice lists. */
+  tfoot.totals-row td {
+    position: sticky;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.95);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border-top: 2px solid rgba(255,255,255,0.15);
+  }
+
+  /* Filter inputs sit inside table header cells. I'm keeping them tiny so they don't dominate the header. */
+  .col-filter {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: #e4e4e7;
+    outline: none;
+  }
+  .col-filter:focus { border-color: rgba(139,92,246,0.5); background: rgba(255,255,255,0.06); }
+  .col-filter::placeholder { color: rgba(255,255,255,0.25); }
+
+  /* Sort indicator caret next to clickable column headers. */
+  .sort-caret { opacity: 0.35; transition: opacity .15s ease; }
+  th.sortable:hover .sort-caret { opacity: 0.7; }
+  th.sortable.active .sort-caret { opacity: 1; color: #a78bfa; }
+
+  /* Timeline range pills */
+  .range-pill {
+    padding: 4px 10px;
+    font-size: 11px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #a1a1aa;
+    transition: all .15s ease;
+    cursor: pointer;
+  }
+  .range-pill:hover { background: rgba(255,255,255,0.08); color: #e4e4e7; }
+  .range-pill.active {
+    background: linear-gradient(to bottom right, #8b5cf6, #6366f1);
+    border-color: rgba(139,92,246,0.5);
+    color: white;
+  }
+
+  /* Tooltip used for the "review manually" hint next to N/A cells.
+     Pure CSS so I don't need a tooltip library. */
+  .hint { position: relative; display: inline-flex; align-items: center; gap: 4px; }
+  .hint .hint-bubble {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    bottom: 130%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #18181b;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #e4e4e7;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    white-space: nowrap;
+    z-index: 30;
+    transition: opacity .15s ease;
+    pointer-events: none;
+  }
+  .hint:hover .hint-bubble { visibility: visible; opacity: 1; }
 </style>
 </head>
 <body class="bg-slate-950 text-zinc-100 antialiased min-h-screen relative overflow-x-hidden">
@@ -64,7 +137,7 @@
       </div>
       <div class="leading-tight">
         <h1 class="font-semibold tracking-tight text-[15px]">InvoiceParsimus</h1>
-        <p class="text-[11px] text-zinc-500">OCR Data Extractor · v2.1</p>
+        <p class="text-[11px] text-zinc-500">OCR Data Extractor · v2.2</p>
       </div>
     </div>
     <div class="flex items-center gap-2">
@@ -95,127 +168,235 @@
     </div>
   </section>
 
-  <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-    <div class="card relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-900/40 border border-white/5 p-5">
+  <!-- Stat cards: tightened down (smaller padding, smaller numbers) so they don't dominate the page. -->
+  <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="card relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-900/40 border border-white/5 p-4">
       <div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-violet-500/10 blur-2xl"></div>
       <div class="relative">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between mb-2">
           <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-violet-500/15 border border-violet-500/20 flex items-center justify-center text-violet-300"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
+            <div class="w-7 h-7 rounded-lg bg-violet-500/15 border border-violet-500/20 flex items-center justify-center text-violet-300"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
             <span class="text-xs uppercase tracking-wider text-zinc-500">Total Invoiced</span>
           </div>
           <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/5 text-zinc-400">CAD</span>
         </div>
-        <div class="font-mono tabular text-3xl font-semibold text-white" id="dash-total">$0.00</div>
+        <div class="font-mono tabular text-2xl font-semibold text-white" id="dash-total">$0.00</div>
       </div>
     </div>
-    <div class="card relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-900/40 border border-white/5 p-5">
+    <div class="card relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-900/40 border border-white/5 p-4">
       <div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-rose-500/10 blur-2xl"></div>
       <div class="relative">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between mb-2">
           <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-rose-500/15 border border-rose-500/20 flex items-center justify-center text-rose-300"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg></div>
+            <div class="w-7 h-7 rounded-lg bg-rose-500/15 border border-rose-500/20 flex items-center justify-center text-rose-300"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg></div>
             <span class="text-xs uppercase tracking-wider text-zinc-500">Total Tax</span>
           </div>
           <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-300">GST/HST</span>
         </div>
-        <div class="font-mono tabular text-3xl font-semibold text-white" id="dash-tax">$0.00</div>
+        <div class="font-mono tabular text-2xl font-semibold text-white" id="dash-tax">$0.00</div>
       </div>
     </div>
-    <div class="card relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-900/40 border border-white/5 p-5">
+    <div class="card relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-900/40 border border-white/5 p-4">
       <div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-emerald-500/10 blur-2xl"></div>
       <div class="relative">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between mb-2">
           <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center text-emerald-300"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg></div>
+            <div class="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center text-emerald-300"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg></div>
             <span class="text-xs uppercase tracking-wider text-zinc-500">Processed</span>
           </div>
           <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300">ALL</span>
         </div>
-        <div class="font-mono tabular text-3xl font-semibold text-white" id="dash-count">0</div>
+        <div class="font-mono tabular text-2xl font-semibold text-white" id="dash-count">0</div>
       </div>
     </div>
-    <div class="card relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-900/40 border border-white/5 p-5">
+    <div class="card relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-900/40 border border-white/5 p-4">
       <div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-sky-500/10 blur-2xl"></div>
       <div class="relative">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between mb-2">
           <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-sky-500/15 border border-sky-500/20 flex items-center justify-center text-sky-300"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
+            <div class="w-7 h-7 rounded-lg bg-sky-500/15 border border-sky-500/20 flex items-center justify-center text-sky-300"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
             <span class="text-xs uppercase tracking-wider text-zinc-500">Vendors</span>
           </div>
           <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/5 text-zinc-400">UNIQUE</span>
         </div>
-        <div class="font-mono tabular text-3xl font-semibold text-white" id="dash-vendors">0</div>
+        <div class="font-mono tabular text-2xl font-semibold text-white" id="dash-vendors">0</div>
       </div>
     </div>
   </section>
 
+  <!-- Dropzone: smaller than v2.1 so it doesn't take up half the page when the user already has data. -->
   <section>
     <div id="dropzone" class="relative rounded-2xl border-2 border-dashed border-white/10 hover:border-violet-400/40 bg-zinc-900/30 dropzone-stripes transition-all group cursor-pointer overflow-hidden">
       <div class="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-violet-500/40 to-transparent"></div>
-      
-      <div id="dropzone-content" class="flex flex-col items-center text-center px-6 py-14">
-        <div class="relative w-20 h-20 mb-5">
+
+      <div id="dropzone-content" class="flex flex-col items-center text-center px-6 py-9">
+        <div class="relative w-14 h-14 mb-3">
           <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-500/20 to-indigo-500/10 border border-white/5 group-hover:from-violet-500/30 group-hover:to-indigo-500/20 transition"></div>
           <div class="absolute inset-0 flex items-center justify-center text-violet-300 group-hover:scale-105 transition">
-            <svg class="w-9 h-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           </div>
         </div>
-        <h3 class="text-lg font-semibold text-zinc-100">Drop PDF Invoices here</h3>
-        <p class="text-sm text-zinc-500 mt-1.5 max-w-sm">Powered by Tesseract OCR. We'll scan the document locally.</p>
+        <h3 class="text-base font-semibold text-zinc-100">Drop PDF Invoices here</h3>
+        <p class="text-xs text-zinc-500 mt-1 max-w-sm">Powered by Tesseract OCR. We'll scan the document locally.</p>
       </div>
 
-      <div id="dropzone-loading" class="hidden flex-col items-center text-center px-6 py-14">
-        <svg class="spinner w-12 h-12 text-violet-500 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-        <h3 class="text-lg font-semibold text-zinc-100">Running Machine Vision...</h3>
-        <p class="text-sm text-zinc-500 mt-1.5">Reading document text. This takes a few seconds per page.</p>
+      <div id="dropzone-loading" class="hidden flex-col items-center text-center px-6 py-9">
+        <svg class="spinner w-10 h-10 text-violet-500 mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+        <h3 class="text-base font-semibold text-zinc-100">Running Machine Vision...</h3>
+        <p class="text-xs text-zinc-500 mt-1">Reading document text. This takes a few seconds per page.</p>
       </div>
 
       <input type="file" id="file-input" class="hidden" accept="application/pdf, image/png, image/jpeg" multiple />
     </div>
   </section>
 
+  <!-- Mock data warning banner.
+       Hidden until the user clicks "Insert Mock Invoices". Uses <details> so the explanation
+       collapses but the headline stays visible. There's no close button on purpose -
+       the only correct way to clear mock data is to refresh the page. -->
+  <details id="mock-warning" class="hidden rounded-2xl bg-amber-500/10 border border-amber-500/30 px-5 py-4" open>
+    <summary class="cursor-pointer list-none flex items-start gap-3">
+      <svg class="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div class="flex-1">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-semibold text-amber-200 text-sm">Mock data loaded (for testing purposes only)</span>
+          <span class="text-[10px] uppercase tracking-wider text-amber-300/60">click to expand</span>
+        </div>
+        <p class="text-xs text-amber-100/70 mt-1">
+          The table below contains <strong>sample invoices</strong>, not data from your documents.
+          <strong>Refresh the page (F5 or Ctrl+R)</strong> before uploading real invoices so mock totals do not mix with your actual data.
+        </p>
+      </div>
+    </summary>
+    <div class="mt-3 pl-8 text-xs text-amber-100/60 space-y-1.5 border-t border-amber-500/20 pt-3">
+      <p><strong class="text-amber-200">What was inserted?</strong> Six fictitious vendor rows spanning March to May 2026. Subtotals are randomly generated ($30 to $250) and tax is a flat 14% calculation. Every click of the button adds another 6 rows on top of whatever is already there.</p>
+      <p><strong class="text-amber-200">Why does this exist?</strong> So I can preview how charts, totals, and column filters behave without needing to OCR real PDFs first.</p>
+      <p><strong class="text-amber-200">How do I get rid of it?</strong> Refresh the page. There is no "clear" button. Refreshing is the only way to guarantee mock rows do not carry over into a real session.</p>
+    </div>
+  </details>
+
+  <!-- Parsed invoices table. Big rebuild in v2.2:
+       - Two new columns: PO # and Invoice #
+       - A second header row with per-column filter inputs
+       - Sortable headers (click cycles asc / desc / unsorted)
+       - A sticky <tfoot> at the bottom showing filter-aware subtotal/tax/total
+       - A "Clear Sort/Filter" button in the section header -->
   <section class="rounded-2xl bg-zinc-900/50 border border-white/5 overflow-hidden">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 border-b border-white/5">
       <h3 class="font-semibold text-zinc-100">Parsed Invoices</h3>
+      <button id="btn-clear-filters" class="px-3 py-1.5 text-xs rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-zinc-300 transition flex items-center gap-2 self-start sm:self-auto">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"/></svg>
+        Clear Sort/Filter
+      </button>
     </div>
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto max-h-[600px] overflow-y-auto">
       <table class="w-full text-sm">
-        <thead>
+        <thead class="sticky top-0 z-10 bg-zinc-900/95 backdrop-blur">
           <tr class="text-[11px] uppercase tracking-wider text-zinc-500 bg-white/[0.015]">
-            <th class="px-5 py-3 text-left font-medium">Date</th>
-            <th class="px-5 py-3 text-left font-medium">Vendor</th>
-            <th class="px-5 py-3 text-left font-medium">Description</th>
-            <th class="px-5 py-3 text-right font-medium">Subtotal</th>
-            <th class="px-5 py-3 text-right font-medium">Tax</th>
-            <th class="px-5 py-3 text-right font-medium">Total</th>
+            <th class="px-5 py-3 text-left font-medium sortable cursor-pointer select-none" data-sort-key="rawDate">Date <span class="sort-caret">▾</span></th>
+            <th class="px-5 py-3 text-left font-medium sortable cursor-pointer select-none" data-sort-key="vendor">Vendor <span class="sort-caret">▾</span></th>
+            <th class="px-5 py-3 text-left font-medium sortable cursor-pointer select-none" data-sort-key="poNumber">PO # <span class="sort-caret">▾</span></th>
+            <th class="px-5 py-3 text-left font-medium sortable cursor-pointer select-none" data-sort-key="invoiceNumber">Invoice # <span class="sort-caret">▾</span></th>
+            <th class="px-5 py-3 text-left font-medium sortable cursor-pointer select-none" data-sort-key="description">Description <span class="sort-caret">▾</span></th>
+            <th class="px-5 py-3 text-right font-medium sortable cursor-pointer select-none" data-sort-key="subtotal">Subtotal <span class="sort-caret">▾</span></th>
+            <th class="px-5 py-3 text-right font-medium sortable cursor-pointer select-none" data-sort-key="tax">Tax <span class="sort-caret">▾</span></th>
+            <th class="px-5 py-3 text-right font-medium sortable cursor-pointer select-none" data-sort-key="total">Total <span class="sort-caret">▾</span></th>
+          </tr>
+          <!-- Filter row: each input narrows the visible invoices.
+               Text inputs do substring match; the number cells use simple "≥" thresholds. -->
+          <tr class="bg-zinc-900/60">
+            <th class="px-3 pb-2 pt-1"><input type="text" data-filter-key="displayDate" class="col-filter" placeholder="e.g. 2026 or -05-"></th>
+            <th class="px-3 pb-2 pt-1"><input type="text" data-filter-key="vendor" class="col-filter" placeholder="vendor"></th>
+            <th class="px-3 pb-2 pt-1"><input type="text" data-filter-key="poNumber" class="col-filter" placeholder="PO #"></th>
+            <th class="px-3 pb-2 pt-1"><input type="text" data-filter-key="invoiceNumber" class="col-filter" placeholder="Invoice #"></th>
+            <th class="px-3 pb-2 pt-1"><input type="text" data-filter-key="description" class="col-filter" placeholder="description"></th>
+            <th class="px-3 pb-2 pt-1"><input type="text" data-filter-key="subtotal" class="col-filter text-right" placeholder="e.g. 24"></th>
+            <th class="px-3 pb-2 pt-1"><input type="text" data-filter-key="tax" class="col-filter text-right" placeholder="e.g. 3.1"></th>
+            <th class="px-3 pb-2 pt-1"><input type="text" data-filter-key="total" class="col-filter text-right" placeholder="e.g. 24"></th>
           </tr>
         </thead>
         <tbody id="invoice-table-body">
-          </tbody>
+        </tbody>
+        <!-- Totals row. No "Total" label - I'm using bold + a top border so it visually reads as a totals row. -->
+        <tfoot class="totals-row">
+          <tr id="totals-row" class="text-sm">
+            <td class="px-5 py-3.5"></td>
+            <td class="px-5 py-3.5"></td>
+            <td class="px-5 py-3.5"></td>
+            <td class="px-5 py-3.5"></td>
+            <td class="px-5 py-3.5"></td>
+            <td class="px-5 py-3.5 text-right font-mono tabular font-bold text-white" id="totals-subtotal">$0.00</td>
+            <td class="px-5 py-3.5 text-right font-mono tabular font-bold text-white" id="totals-tax">$0.00</td>
+            <td class="px-5 py-3.5 text-right font-mono tabular font-bold text-white text-base" id="totals-total">$0.00</td>
+          </tr>
+        </tfoot>
       </table>
     </div>
   </section>
-  
+
   <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-10">
-    <div class="card rounded-2xl bg-zinc-900/50 border border-white/5 p-5"><div class="relative h-64 w-full"><canvas id="spendChart"></canvas></div></div>
-    <div class="card rounded-2xl bg-zinc-900/50 border border-white/5 p-5"><div class="relative h-64 w-full"><canvas id="vendorChart"></canvas></div></div>
+    <!-- Spend timeline card with range-toggle pills.
+         The active pill controls which slice of history feeds into the line chart. -->
+    <div class="card rounded-2xl bg-zinc-900/50 border border-white/5 p-5">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h4 class="text-sm font-semibold text-zinc-200">Spend Timeline</h4>
+        <div id="range-toggle" class="flex items-center gap-1">
+          <button class="range-pill" data-range="1m">1M</button>
+          <button class="range-pill" data-range="3m">3M</button>
+          <button class="range-pill" data-range="6m">6M</button>
+          <button class="range-pill" data-range="ytd">YTD</button>
+          <button class="range-pill" data-range="1y">1Y</button>
+          <button class="range-pill active" data-range="all">All</button>
+        </div>
+      </div>
+      <div class="relative h-64 w-full"><canvas id="spendChart"></canvas></div>
+    </div>
+    <div class="card rounded-2xl bg-zinc-900/50 border border-white/5 p-5">
+      <h4 class="text-sm font-semibold text-zinc-200 mb-3">Vendor Distribution</h4>
+      <!-- Taller container (h-72) than the spend chart so 2-line outside labels have headroom. -->
+      <div class="relative h-72 w-full"><canvas id="vendorChart"></canvas></div>
+    </div>
   </section>
 
 </main>
 
 <script>
-  const appState = { invoices: [] };
+  /* ============================================================
+     APP STATE
+     Everything the app remembers lives here. Keeping a single
+     source of truth means the table, totals row, and charts can
+     never disagree with each other.
+     ============================================================ */
+  const appState = {
+    invoices: [],          // The canonical list of parsed invoices. Never mutated by sort/filter.
+    mockDataLoaded: false, // Flips to true once the user inserts mock rows so the warning sticks.
+    timelineRange: 'all'   // Which range-pill is active for the line chart: 1m/3m/6m/ytd/1y/all
+  };
 
+  /* tableState holds the current sort + per-column filters.
+     - sort.key: which invoice field we're sorting by (e.g. 'vendor')
+     - sort.dir: 'asc' | 'desc' | null (null means no sorting)
+     - filters: { fieldName: stringValue } — empty string means no filter for that column */
+  const tableState = {
+    sort: { key: null, dir: null },
+    filters: {}
+  };
+
+  // Register the datalabels plugin globally so the pie chart picks it up.
+  if (window.ChartDataLabels) Chart.register(window.ChartDataLabels);
+
+  // DOM handles I reuse a lot - pulling them out once is faster than re-querying every render.
   const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('file-input');
   const dropzoneContent = document.getElementById('dropzone-content');
   const dropzoneLoading = document.getElementById('dropzone-loading');
   const tableBody = document.getElementById('invoice-table-body');
-  
+  const mockWarning = document.getElementById('mock-warning');
+
   let spendChartInstance, vendorChartInstance;
 
   // --- DRAG AND DROP ---
+  // Click the dropzone -> open the file picker. Drag a file over it -> let CSS highlight it.
   dropzone.addEventListener('click', () => fileInput.click());
   dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('border-violet-400'); });
   dropzone.addEventListener('dragleave', () => dropzone.classList.remove('border-violet-400'));
@@ -229,6 +410,7 @@
   });
 
   // --- FILE ROUTER ---
+  // Decides whether each uploaded file is a PDF or an image, and sends it to the right OCR pipeline.
   async function handleFiles(files) {
       dropzoneContent.classList.add('hidden');
       dropzoneLoading.classList.remove('hidden');
@@ -248,6 +430,7 @@
   }
 
   // --- PDF TO IMAGE TO OCR ---
+  // PDFs can't be read directly by Tesseract, so I render each page to a <canvas> and OCR that image.
   async function parsePDFWithOCR(file) {
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument(new Uint8Array(arrayBuffer)).promise;
@@ -255,8 +438,8 @@
 
       for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 2.0 }); 
-          
+          const viewport = page.getViewport({ scale: 2.0 }); // 2x zoom = sharper text for OCR
+
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
           canvas.height = viewport.height;
@@ -279,16 +462,24 @@
       processExtractedText(text);
   }
 
-  // --- SMART LINE-SCANNING ENGINE ---
+  /* --- SMART LINE-SCANNING ENGINE ---
+     This is the heart of the app: given a giant blob of OCR text, pull out
+     the fields I care about (date, vendor, PO #, invoice #, subtotal, tax, total).
+     If any field can't be found, I set it to null and remember that in _flags
+     so the table can show "N/A" + a "review manually" hint. */
   function processExtractedText(text) {
       console.log("OCR RAW TEXT:\n", text);
       const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-      
-      // 1. DATE FORMATTER (Normalized to DD-MM-YYYY)
-      let isoDate = new Date().toISOString().split('T')[0]; // Default sorting date
-      let displayDate = "Unidentified Date";
-      
-      // Look for standard textual dates (May 8, 2026) or numeric (2026-05-08)
+
+      // _flags tracks which fields the parser failed to find for this invoice.
+      // The UI uses these flags to render "N/A" with a tooltip prompting manual review.
+      const flags = { vendor: false, poNumber: false, invoiceNumber: false, date: false, subtotal: false, tax: false, total: false };
+
+      // 1. DATE FORMATTER (normalized to DD-MM-YYYY for display)
+      let isoDate = new Date().toISOString().split('T')[0]; // Fallback so sorting still works even if no date is found
+      let displayDate = null;
+
+      // Match either "May 8, 2026" style or "2026-05-08" / "2026/05/08" numeric style.
       const dateRegex = /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b|\b\d{4}[-/]\d{2}[-/]\d{2}\b/i;
       for (const line of lines) {
           const match = line.match(dateRegex);
@@ -296,7 +487,7 @@
               const parsedDate = new Date(match[0]);
               if (!isNaN(parsedDate)) {
                   isoDate = parsedDate.toISOString().split('T')[0];
-                  // Format as DD-MM-YYYY
+                  // padStart(2,'0') turns "5" into "05" so dates look consistent.
                   const dd = String(parsedDate.getDate()).padStart(2, '0');
                   const mm = String(parsedDate.getMonth() + 1).padStart(2, '0');
                   const yyyy = parsedDate.getFullYear();
@@ -305,159 +496,497 @@
               }
           }
       }
+      if (!displayDate) { flags.date = true; }
 
-      // 2. VENDOR EXTRACTION (Grab the first valid business name line)
-      let vendorName = "Unidentified Vendor";
+      // 2. VENDOR EXTRACTION
+      // Walk through the lines and grab the first non-junk line as the vendor.
+      // Junk = lines that obviously aren't business names ("INVOICE", "Bill To", etc.)
+      let vendorName = null;
       for (const line of lines) {
-          // Skip obvious non-vendor lines
           if (!/^(invoice|receipt|date|page|bill to|ship to|amount|tax|total)/i.test(line) && line.length > 3) {
+              // Strip weird OCR artifacts, cap at 40 chars so a giant line doesn't break the layout.
               vendorName = line.replace(/[^a-zA-Z0-9\s&.,-]/g, '').substring(0, 40).trim();
-              break;
+              if (vendorName) break;
           }
       }
+      if (!vendorName) { flags.vendor = true; }
 
-      // 3. SMART AMOUNT EXTRACTOR (Reads matching lines, grabs the LAST monetary value)
+      // 3. PO # and INVOICE # extraction
+      // These regexes look for the label + optional separator (# / : / -) + the actual number.
+      // Capture group 1 is what I actually want.
+      const poRegex = /\b(?:P\.?\s?O\.?(?:\s*(?:#|No\.?|Number))?|Purchase\s+Order(?:\s*(?:#|No\.?))?)\s*[:#-]?\s*([A-Z0-9][A-Z0-9-]{2,19})/i;
+      const invRegex = /\b(?:Invoice|Inv\.?)\s*(?:#|No\.?|Number)?\s*[:#-]?\s*([A-Z0-9][A-Z0-9-]{2,19})/i;
+
+      let poNumber = null, invoiceNumber = null;
+      for (const line of lines) {
+          if (!poNumber) {
+              const m = line.match(poRegex);
+              if (m) poNumber = m[1].toUpperCase();
+          }
+          if (!invoiceNumber) {
+              const m = line.match(invRegex);
+              if (m) invoiceNumber = m[1].toUpperCase();
+          }
+          if (poNumber && invoiceNumber) break;
+      }
+      if (!poNumber) { flags.poNumber = true; }
+      if (!invoiceNumber) { flags.invoiceNumber = true; }
+
+      // 4. SMART AMOUNT EXTRACTOR
+      // Reads bottom-up because totals usually sit near the bottom of an invoice.
+      // For each match, grabs the LAST dollar amount on that line (the value, not a line number).
+      // Returns { value, found } so I can tell the difference between "$0.00 was on the line" and "nothing matched".
       const extractLastAmount = (regex) => {
-          for (let i = lines.length - 1; i >= 0; i--) { // Read bottom up to catch final totals
+          for (let i = lines.length - 1; i >= 0; i--) {
               if (regex.test(lines[i])) {
                   const amounts = lines[i].match(/[0-9,]+\.\d{2}/g);
                   if (amounts) {
-                      return parseFloat(amounts[amounts.length - 1].replace(/,/g, ''));
+                      // .replace(/,/g, '') strips commas so "1,234.50" parses as a real number.
+                      return { value: parseFloat(amounts[amounts.length - 1].replace(/,/g, '')), found: true };
                   }
               }
           }
-          return 0.00;
+          return { value: 0, found: false };
       };
 
-      const subtotal = extractLastAmount(/subtotal|sub-total|total excluding/i);
-      const tax = extractLastAmount(/tax|gst|hst|vat/i);
-      // Fallback: If total isn't explicitly found, calculate it.
-      let total = extractLastAmount(/^total$|amount due|balance due|total(?!\sexcluding)/i);
-      if (total === 0.00 && (subtotal > 0 || tax > 0)) {
-          total = subtotal + tax;
+      const subRes = extractLastAmount(/subtotal|sub-total|total excluding/i);
+      const taxRes = extractLastAmount(/tax|gst|hst|vat/i);
+      // For total: "^total$" matches a line that's just "Total". The (?!\sexcluding) bit avoids matching "Total excluding tax".
+      let totRes = extractLastAmount(/^total$|amount due|balance due|total(?!\sexcluding)/i);
+
+      // Fallback: if total is missing but subtotal+tax are present, just add them.
+      if (!totRes.found && (subRes.found || taxRes.found)) {
+          totRes = { value: subRes.value + taxRes.value, found: true };
       }
 
-      // 4. FALLBACK DESCRIPTION
-      const description = vendorName !== "Unidentified Vendor" 
-          ? `Auto-Parsed: ${vendorName} Document` 
+      if (!subRes.found) flags.subtotal = true;
+      if (!taxRes.found) flags.tax = true;
+      if (!totRes.found) flags.total = true;
+
+      // 5. DESCRIPTION fallback (no parser for this yet - just a placeholder string)
+      const description = vendorName
+          ? `Auto-Parsed: ${vendorName} Document`
           : "Manual Review Required";
 
       appState.invoices.push({
-          rawDate: isoDate,        // For charting & sorting
-          displayDate: displayDate, // For table UI DD-MM-YYYY
-          vendor: vendorName,
+          rawDate: isoDate,             // ISO string, used for math and sorting
+          displayDate: displayDate || "N/A", // Pretty DD-MM-YYYY shown in the table
+          vendor: vendorName,           // null if not found
+          poNumber: poNumber,           // null if not found
+          invoiceNumber: invoiceNumber, // null if not found
           description: description,
-          subtotal: subtotal,
-          tax: tax,
-          total: total
+          subtotal: subRes.value,
+          tax: taxRes.value,
+          total: totRes.value,
+          _flags: flags
       });
 
       renderUI();
   }
 
-  // --- UI AND CHART UPDATES ---
+  /* ============================================================
+     SORT + FILTER ENGINE
+     getVisibleInvoices() is the single function every rendering
+     consumer (table rows, totals row, charts, stat cards) reads from.
+     That guarantees a row's PO # / Invoice # / Tax can never get
+     separated from its row - everything ships as one object reference.
+     ============================================================ */
+  function getVisibleInvoices() {
+      // Start by filtering. I'm making a shallow array of object references - not copies of the data.
+      let view = appState.invoices.filter(inv => {
+          for (const key of Object.keys(tableState.filters)) {
+              const filterVal = tableState.filters[key];
+              if (filterVal === '' || filterVal == null) continue;
+
+              // All columns use substring match. Amount columns are converted to "24.25" string form
+              // so typing "24" matches both $24.25 and $124.50, just like filtering text.
+              const cellText = (key === 'subtotal' || key === 'tax' || key === 'total')
+                  ? (inv[key] ?? 0).toFixed(2)
+                  : (inv[key] ?? 'n/a').toString().toLowerCase();
+              if (!cellText.includes(filterVal.toString().toLowerCase())) return false;
+          }
+          return true;
+      });
+
+      // Then sort. If no sort key is set, default to newest-first by rawDate.
+      if (tableState.sort.key && tableState.sort.dir) {
+          const { key, dir } = tableState.sort;
+          view.sort((a, b) => {
+              let av = a[key], bv = b[key];
+              // Push nulls to the bottom regardless of direction so missing data doesn't crowd the top.
+              if (av == null && bv == null) return 0;
+              if (av == null) return 1;
+              if (bv == null) return -1;
+              if (typeof av === 'number' && typeof bv === 'number') {
+                  return dir === 'asc' ? av - bv : bv - av;
+              }
+              // String compare (also handles date strings since rawDate is ISO).
+              av = av.toString().toLowerCase();
+              bv = bv.toString().toLowerCase();
+              if (av < bv) return dir === 'asc' ? -1 : 1;
+              if (av > bv) return dir === 'asc' ? 1 : -1;
+              return 0;
+          });
+      } else {
+          view.sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));
+      }
+
+      return view;
+  }
+
+  /* renderCell: shared helper for any field that might be missing.
+     If flagged, returns "N/A" plus a hover-bubble prompting the user to review the original document. */
+  function renderCell(value, flagged, extraClass = '') {
+      if (flagged || value == null || value === '') {
+          return `<span class="hint">
+            <span class="text-zinc-500 italic">N/A</span>
+            <svg class="w-3.5 h-3.5 text-amber-400/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span class="hint-bubble">Review manually — OCR couldn't extract this field</span>
+          </span>`;
+      }
+      return `<span class="${extraClass}">${value}</span>`;
+  }
+
+  /* ============================================================
+     UI RENDER
+     Called whenever invoices/filters/sort change. Single-pass:
+     1. Compute the visible invoices.
+     2. Render rows.
+     3. Render totals from the same array.
+     4. Update stat cards + charts from the same array.
+     ============================================================ */
   function renderUI() {
+      const visible = getVisibleInvoices();
+
+      // Empty state - either no invoices at all, or filters hid everything.
       if (appState.invoices.length === 0) {
-          tableBody.innerHTML = `<tr><td colspan="6" class="px-6 py-20 text-center text-zinc-500">No invoices processed. Drop a file to begin.</td></tr>`;
+          tableBody.innerHTML = `<tr><td colspan="8" class="px-6 py-20 text-center text-zinc-500">No invoices processed. Drop a file to begin.</td></tr>`;
+          updateTotals([]);
+          updateStatCards([]);
+          updateCharts([]);
+          updateSortIndicators();
+          return;
+      }
+      if (visible.length === 0) {
+          tableBody.innerHTML = `<tr><td colspan="8" class="px-6 py-12 text-center text-zinc-500">No invoices match the current filters. <button class="text-violet-400 hover:text-violet-300 underline" onclick="clearFiltersAndSort()">Clear filters</button></td></tr>`;
+          updateTotals([]);
+          updateStatCards([]);
+          updateCharts([]);
+          updateSortIndicators();
           return;
       }
 
-      let totalInvoiced = 0, totalTax = 0;
+      // Build the table rows. Each call to renderCell handles the "missing data" case for me.
+      tableBody.innerHTML = visible.map(inv => `
+          <tr class="border-t border-white/5 hover:bg-white/[0.02] transition">
+              <td class="px-5 py-3.5 text-zinc-300 font-mono text-xs">${renderCell(inv.displayDate === 'N/A' ? null : inv.displayDate, inv._flags?.date)}</td>
+              <td class="px-5 py-3.5 font-medium ${inv.vendor ? 'text-zinc-200' : ''}">${renderCell(inv.vendor, inv._flags?.vendor)}</td>
+              <td class="px-5 py-3.5 text-zinc-300 font-mono text-xs">${renderCell(inv.poNumber, inv._flags?.poNumber)}</td>
+              <td class="px-5 py-3.5 text-zinc-300 font-mono text-xs">${renderCell(inv.invoiceNumber, inv._flags?.invoiceNumber)}</td>
+              <td class="px-5 py-3.5 text-zinc-400">${inv.description}</td>
+              <td class="px-5 py-3.5 text-zinc-300 text-right font-mono tabular">${inv._flags?.subtotal ? renderCell(null, true) : '$' + inv.subtotal.toFixed(2)}</td>
+              <td class="px-5 py-3.5 text-zinc-400 text-right font-mono tabular">${inv._flags?.tax ? renderCell(null, true) : '$' + inv.tax.toFixed(2)}</td>
+              <td class="px-5 py-3.5 text-zinc-100 font-semibold text-right font-mono tabular">${inv._flags?.total ? renderCell(null, true) : '$' + inv.total.toFixed(2)}</td>
+          </tr>
+      `).join('');
+
+      updateTotals(visible);
+      updateStatCards(visible);
+      updateCharts(visible);
+      updateSortIndicators();
+  }
+
+  /* Totals row: sums whatever is currently visible (post-filter), not the full dataset.
+     This is the "filter should affect totals" requirement. */
+  function updateTotals(visible) {
+      // reduce() walks the array adding numbers together. (a, b) => a + b means "running sum + current value".
+      const sumSubtotal = visible.reduce((a, inv) => a + (inv.subtotal || 0), 0);
+      const sumTax = visible.reduce((a, inv) => a + (inv.tax || 0), 0);
+      const sumTotal = visible.reduce((a, inv) => a + (inv.total || 0), 0);
+      document.getElementById('totals-subtotal').innerText = `$${sumSubtotal.toLocaleString('en-CA', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      document.getElementById('totals-tax').innerText = `$${sumTax.toLocaleString('en-CA', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      document.getElementById('totals-total').innerText = `$${sumTotal.toLocaleString('en-CA', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+  }
+
+  /* Stat cards at the top - also reflect the filtered view so the whole dashboard stays consistent. */
+  function updateStatCards(visible) {
+      const totalInvoiced = visible.reduce((a, inv) => a + (inv.total || 0), 0);
+      const totalTax = visible.reduce((a, inv) => a + (inv.tax || 0), 0);
       const vendors = new Set();
-      
-      // Sort using the raw ISO date so math works
-      appState.invoices.sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));
-      
-      tableBody.innerHTML = "";
-      appState.invoices.forEach(inv => {
-          totalInvoiced += inv.total;
-          totalTax += inv.tax;
-          if (inv.vendor !== "Unidentified Vendor") vendors.add(inv.vendor);
+      visible.forEach(inv => { if (inv.vendor) vendors.add(inv.vendor); });
 
-          tableBody.insertAdjacentHTML('beforeend', `
-              <tr class="border-t border-white/5 hover:bg-white/[0.02] transition">
-                  <td class="px-5 py-3.5 text-zinc-300 font-mono text-xs">${inv.displayDate}</td>
-                  <td class="px-5 py-3.5 ${inv.vendor === 'Unidentified Vendor' ? 'text-rose-400' : 'text-zinc-200'} font-medium">${inv.vendor}</td>
-                  <td class="px-5 py-3.5 text-zinc-400">${inv.description}</td>
-                  <td class="px-5 py-3.5 text-zinc-300 text-right font-mono tabular">$${inv.subtotal.toFixed(2)}</td>
-                  <td class="px-5 py-3.5 text-zinc-400 text-right font-mono tabular">$${inv.tax.toFixed(2)}</td>
-                  <td class="px-5 py-3.5 text-zinc-100 font-semibold text-right font-mono tabular">$${inv.total.toFixed(2)}</td>
-              </tr>
-          `);
-      });
-
-      document.getElementById('dash-total').innerText = `$${totalInvoiced.toLocaleString('en-CA', {minimumFractionDigits: 2})}`;
-      document.getElementById('dash-tax').innerText = `$${totalTax.toLocaleString('en-CA', {minimumFractionDigits: 2})}`;
-      document.getElementById('dash-count').innerText = appState.invoices.length;
+      document.getElementById('dash-total').innerText = `$${totalInvoiced.toLocaleString('en-CA', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      document.getElementById('dash-tax').innerText = `$${totalTax.toLocaleString('en-CA', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      document.getElementById('dash-count').innerText = visible.length;
       document.getElementById('dash-vendors').innerText = vendors.size;
-
-      updateCharts();
   }
 
+  /* Adds/removes the "active" CSS class and the asc/desc caret on the sorted column. */
+  function updateSortIndicators() {
+      document.querySelectorAll('th.sortable').forEach(th => {
+          const key = th.getAttribute('data-sort-key');
+          const caret = th.querySelector('.sort-caret');
+          if (tableState.sort.key === key && tableState.sort.dir) {
+              th.classList.add('active');
+              caret.textContent = tableState.sort.dir === 'asc' ? '▴' : '▾';
+          } else {
+              th.classList.remove('active');
+              caret.textContent = '▾';
+          }
+      });
+  }
+
+  /* ============================================================
+     CHARTS
+     ============================================================ */
   function initCharts() {
-      Chart.defaults.color = '#a1a1aa'; Chart.defaults.font.family = 'Inter';
-      spendChartInstance = new Chart(document.getElementById('spendChart').getContext('2d'), { type: 'line', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, elements: { line: { tension: 0.4 } }, scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true }, x: { grid: { display: false } } } } });
-      vendorChartInstance = new Chart(document.getElementById('vendorChart').getContext('2d'), { type: 'pie', data: { labels: [], datasets: [] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } }, elements: { arc: { borderWidth: 2, borderColor: '#09090b' } } } });
-  }
+      Chart.defaults.color = '#a1a1aa';
+      Chart.defaults.font.family = 'Inter';
 
-  function updateCharts() {
-      const monthly = {}, vendors = {};
-      appState.invoices.forEach(inv => {
-          const d = new Date(inv.rawDate);
-          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-          if (!monthly[k]) monthly[k] = { label: d.toLocaleString('default', { month: 'short', year: 'numeric' }), total: 0 };
-          monthly[k].total += inv.total;
-          if (inv.vendor !== "Unidentified Vendor") {
-              if (!vendors[inv.vendor]) vendors[inv.vendor] = 0;
-              vendors[inv.vendor] += inv.total;
+      spendChartInstance = new Chart(document.getElementById('spendChart').getContext('2d'), {
+          type: 'line',
+          data: { labels: [], datasets: [] },
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              // I'm turning off datalabels for the line chart only - it only makes sense on the pie.
+              plugins: { legend: { display: false }, datalabels: { display: false } },
+              elements: { line: { tension: 0.4 } },
+              scales: {
+                  y: { grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true },
+                  x: { grid: { display: false } }
+              }
           }
       });
 
+      vendorChartInstance = new Chart(document.getElementById('vendorChart').getContext('2d'), {
+          type: 'pie',
+          data: { labels: [], datasets: [] },
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              // Generous top/bottom/left padding gives 2-line outside labels (~26px of text + offset)
+              // enough headroom that they never clip against the canvas edge.
+              // Right stays smaller because the legend column already reserves space there,
+              // and clamp: true (on datalabels below) keeps right-side labels off the legend.
+              layout: { padding: { top: 44, bottom: 44, left: 44, right: 24 } },
+              plugins: {
+                  // rtl: true puts the color swatch on the RIGHT of each vendor name.
+                  // textAlign: 'right' makes the names flush-right within the legend column.
+                  legend: {
+                      position: 'right',
+                      rtl: true,
+                      labels: {
+                          boxWidth: 12,
+                          font: { size: 11 },
+                          textAlign: 'right'
+                      }
+                  },
+                  // Labels sit OUTSIDE each slice (anchor/align 'end').
+                  // clamp: true prevents them from drifting into the legend area on the right.
+                  // Two-line format: vendor name on top, percentage below, both centered.
+                  // Slices under 5% hide their label so tiny wedges don't get squashed text.
+                  datalabels: {
+                      color: '#e4e4e7',
+                      anchor: 'end',
+                      align: 'end',
+                      clamp: true,
+                      offset: 6,
+                      textAlign: 'center',
+                      display: (ctx) => {
+                          const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                          if (!total) return false;
+                          return ((ctx.dataset.data[ctx.dataIndex] / total) * 100) >= 5;
+                      },
+                      formatter: (value, ctx) => {
+                          const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                          if (!total) return '';
+                          const pct = ((value / total) * 100).toFixed(1);
+                          const label = ctx.chart.data.labels[ctx.dataIndex] || '';
+                          // Shorten long names so the label doesn't overflow the card edge.
+                          const short = label.length > 12 ? label.substring(0, 11) + '…' : label;
+                          // '\n' splits the label onto two lines: name then percentage.
+                          return `${short}\n${pct}%`;
+                      },
+                      font: { size: 10, weight: '600' }
+                  }
+              },
+              elements: { arc: { borderWidth: 2, borderColor: '#09090b' } }
+          }
+      });
+  }
+
+  /* updateCharts:
+     - Pie chart uses the filtered view so it agrees with the table/totals.
+     - Line chart applies its OWN range filter on top (timelineRange) so the user
+       can scope the trendline without breaking the pie. */
+  function updateCharts(visible) {
+      // ----- LINE CHART: apply timeline range on top of the filtered view -----
+      const now = new Date();
+      let rangeStart = null;
+      if (appState.timelineRange === '1m') rangeStart = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+      else if (appState.timelineRange === '3m') rangeStart = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+      else if (appState.timelineRange === '6m') rangeStart = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+      else if (appState.timelineRange === 'ytd') rangeStart = new Date(now.getFullYear(), 0, 1);
+      else if (appState.timelineRange === '1y') rangeStart = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+      // 'all' -> rangeStart stays null -> no range filter applied
+
+      const timelineRows = visible.filter(inv => {
+          if (!rangeStart) return true;
+          return new Date(inv.rawDate) >= rangeStart;
+      });
+
+      // Bucket invoices by YYYY-MM so the chart shows one point per month.
+      const monthly = {};
+      timelineRows.forEach(inv => {
+          const d = new Date(inv.rawDate);
+          const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          if (!monthly[k]) monthly[k] = { label: d.toLocaleString('default', { month: 'short', year: 'numeric' }), total: 0 };
+          monthly[k].total += inv.total || 0;
+      });
+
       const mKeys = Object.keys(monthly).sort();
-      spendChartInstance.data = { labels: mKeys.map(k => monthly[k].label), datasets: [{ data: mKeys.map(k => monthly[k].total), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.1)', borderWidth: 2, fill: true }] };
+      spendChartInstance.data = {
+          labels: mKeys.map(k => monthly[k].label),
+          datasets: [{
+              data: mKeys.map(k => monthly[k].total),
+              borderColor: '#8b5cf6',
+              backgroundColor: 'rgba(139, 92, 246, 0.1)',
+              borderWidth: 2,
+              fill: true,
+              pointBackgroundColor: '#8b5cf6',
+              pointRadius: 3
+          }]
+      };
       spendChartInstance.update();
 
+      // ----- PIE CHART: vendor share of the filtered view -----
+      const vendors = {};
+      visible.forEach(inv => {
+          if (inv.vendor) {
+              if (!vendors[inv.vendor]) vendors[inv.vendor] = 0;
+              vendors[inv.vendor] += inv.total || 0;
+          }
+      });
+      // Sort vendors by spend descending so the biggest slices read first in the legend.
       const vKeys = Object.entries(vendors).sort((a, b) => b[1] - a[1]);
-      vendorChartInstance.data = { labels: vKeys.map(v => v[0]), datasets: [{ data: vKeys.map(v => v[1]), backgroundColor: ['#8b5cf6', '#0ea5e9', '#10b981', '#f43f5e', '#f59e0b', '#ec4899'] }] };
+      vendorChartInstance.data = {
+          labels: vKeys.map(v => v[0]),
+          datasets: [{
+              data: vKeys.map(v => v[1]),
+              backgroundColor: ['#8b5cf6', '#0ea5e9', '#10b981', '#f43f5e', '#f59e0b', '#ec4899', '#a78bfa', '#34d399']
+          }]
+      };
       vendorChartInstance.update();
   }
 
-document.getElementById('btn-mock-data').addEventListener('click', () => {
-      // Helper function to generate a random dollar amount between a min and max
-      const randomAmount = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(2));
+  /* ============================================================
+     EVENT WIRING — header buttons, sort clicks, filter inputs,
+     range pills, mock data, CSV export
+     ============================================================ */
 
-      // We map over the array to inject random math before pushing it to the table
+  // Sort clicks: each click on a sortable header cycles asc -> desc -> none.
+  document.querySelectorAll('th.sortable').forEach(th => {
+      th.addEventListener('click', () => {
+          const key = th.getAttribute('data-sort-key');
+          if (tableState.sort.key !== key) {
+              // New column - start ascending.
+              tableState.sort = { key, dir: 'asc' };
+          } else if (tableState.sort.dir === 'asc') {
+              tableState.sort.dir = 'desc';
+          } else {
+              tableState.sort = { key: null, dir: null };
+          }
+          renderUI();
+      });
+  });
+
+  // Filter inputs: read each input on every keystroke, debounce-free since the dataset is small.
+  document.querySelectorAll('input.col-filter').forEach(input => {
+      input.addEventListener('input', () => {
+          const key = input.getAttribute('data-filter-key');
+          tableState.filters[key] = input.value;
+          renderUI();
+      });
+  });
+
+  // Range toggle pills: clicking one updates appState.timelineRange and re-renders.
+  document.querySelectorAll('#range-toggle .range-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+          document.querySelectorAll('#range-toggle .range-pill').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          appState.timelineRange = btn.getAttribute('data-range');
+          renderUI();
+      });
+  });
+
+  // Clear sort/filter button: wipes tableState, resets input boxes, re-renders.
+  function clearFiltersAndSort() {
+      tableState.sort = { key: null, dir: null };
+      tableState.filters = {};
+      document.querySelectorAll('input.col-filter').forEach(input => { input.value = ''; });
+      renderUI();
+  }
+  // Expose globally so the empty-state "Clear filters" link can call it.
+  window.clearFiltersAndSort = clearFiltersAndSort;
+  document.getElementById('btn-clear-filters').addEventListener('click', clearFiltersAndSort);
+
+  // Insert Mock Invoices: builds 6 fake rows with random subtotals + flat 14% tax.
+  // Each click appends another 6 rows - the warning banner explains this to the user.
+  // Also flips on the amber warning banner so I never confuse mock data for real parsed invoices.
+  document.getElementById('btn-mock-data').addEventListener('click', () => {
+      const randomAmount = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(2));
+      const emptyFlags = { vendor: false, poNumber: false, invoiceNumber: false, date: false, subtotal: false, tax: false, total: false };
+
       const mockData = [
-          { rawDate: '2026-05-15', displayDate: '15-05-2026', vendor: 'Printify', description: 'Desk Mat Fulfillment - AtelierKYU' },
-          { rawDate: '2026-05-12', displayDate: '12-05-2026', vendor: 'Midjourney', description: 'AI Image Generation Sub' },
-          { rawDate: '2026-04-28', displayDate: '28-04-2026', vendor: 'Notion', description: 'Workspace Plus' },
-          { rawDate: '2026-04-15', displayDate: '15-04-2026', vendor: 'ElevenLabs', description: 'Creator Audio API' },
-          { rawDate: '2026-03-20', displayDate: '20-03-2026', vendor: 'n8n', description: 'Workflow Automation Cloud' },
-          { rawDate: '2026-03-10', displayDate: '10-03-2026', vendor: 'Yokohama Motors', description: 'Suzuki Carry Import Parts' }
+          { rawDate: '2026-05-15', displayDate: '15-05-2026', vendor: 'Printify',         poNumber: 'PO-10421', invoiceNumber: 'INV-88231', description: 'Desk Mat Fulfillment - AtelierKYU' },
+          { rawDate: '2026-05-12', displayDate: '12-05-2026', vendor: 'Midjourney',       poNumber: 'PO-10422', invoiceNumber: 'INV-88245', description: 'AI Image Generation Sub' },
+          { rawDate: '2026-04-28', displayDate: '28-04-2026', vendor: 'Notion',           poNumber: 'PO-10398', invoiceNumber: 'INV-87990', description: 'Workspace Plus' },
+          { rawDate: '2026-04-15', displayDate: '15-04-2026', vendor: 'ElevenLabs',       poNumber: 'PO-10377', invoiceNumber: 'INV-87811', description: 'Creator Audio API' },
+          { rawDate: '2026-03-20', displayDate: '20-03-2026', vendor: 'n8n',              poNumber: 'PO-10302', invoiceNumber: 'INV-87410', description: 'Workflow Automation Cloud' },
+          { rawDate: '2026-03-10', displayDate: '10-03-2026', vendor: 'Yokohama Motors',  poNumber: 'PO-10288', invoiceNumber: 'INV-87302', description: 'Suzuki Carry Import Parts' }
       ].map(inv => {
-          const generatedSubtotal = randomAmount(30, 250); // Generates a random subtotal between $30 and $250
-          const generatedTax = parseFloat((generatedSubtotal * 0.13).toFixed(2)); // Calculates 13% tax based on the random subtotal
-          
+          const generatedSubtotal = randomAmount(30, 250);
+          const generatedTax = parseFloat((generatedSubtotal * 0.14).toFixed(2)); // Flat 14% tax rate for mock rows
           return {
               ...inv,
               subtotal: generatedSubtotal,
               tax: generatedTax,
-              total: parseFloat((generatedSubtotal + generatedTax).toFixed(2))
+              total: parseFloat((generatedSubtotal + generatedTax).toFixed(2)),
+              _flags: { ...emptyFlags }
           };
       });
-      
+
       appState.invoices = [...appState.invoices, ...mockData];
+      appState.mockDataLoaded = true;
+      mockWarning.classList.remove('hidden');
       renderUI();
   });
 
+  // CSV export: builds rows from the current canonical list (not the filtered view, since
+  // the user almost always wants the full export). Quoting on text fields keeps commas safe.
   document.getElementById('btn-export-csv').addEventListener('click', () => {
-      const rows = appState.invoices.map(i => `${i.displayDate},"${i.vendor}","${i.description}",${i.subtotal},${i.tax},${i.total}`);
+      const rows = appState.invoices.map(i => {
+          const cells = [
+              i.displayDate || 'N/A',
+              `"${(i.vendor || 'N/A').replace(/"/g, '""')}"`,
+              `"${(i.poNumber || 'N/A').replace(/"/g, '""')}"`,
+              `"${(i.invoiceNumber || 'N/A').replace(/"/g, '""')}"`,
+              `"${(i.description || '').replace(/"/g, '""')}"`,
+              i.subtotal.toFixed(2),
+              i.tax.toFixed(2),
+              i.total.toFixed(2)
+          ];
+          return cells.join(',');
+      });
+      const header = 'Date,Vendor,PO #,Invoice #,Description,Subtotal,Tax,Total';
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(new Blob([['Date,Vendor,Description,Subtotal,Tax,Total', ...rows].join('\n')], { type: 'text/csv' }));
+      link.href = URL.createObjectURL(new Blob([[header, ...rows].join('\n')], { type: 'text/csv' }));
       link.download = 'InvoiceParsimus_OCR_Export.csv';
       link.click();
   });
 
+  // Boot up once the DOM is ready: build the empty charts, then run an initial render.
   window.addEventListener('DOMContentLoaded', () => {
       initCharts();
       renderUI();
