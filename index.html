@@ -16,7 +16,6 @@
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
@@ -41,7 +40,6 @@
   .dropzone-stripes {
     background-image: repeating-linear-gradient(45deg, rgba(139,92,246,0.04) 0, rgba(139,92,246,0.04) 10px, transparent 10px, transparent 20px);
   }
-  /* Loading spinner for OCR */
   @keyframes spin { 100% { transform: rotate(360deg); } }
   .spinner { animation: spin 1s linear infinite; }
 </style>
@@ -66,7 +64,7 @@
       </div>
       <div class="leading-tight">
         <h1 class="font-semibold tracking-tight text-[15px]">InvoiceParsimus</h1>
-        <p class="text-[11px] text-zinc-500">OCR Data Extractor · v2.0</p>
+        <p class="text-[11px] text-zinc-500">OCR Data Extractor · v2.1</p>
       </div>
     </div>
     <div class="flex items-center gap-2">
@@ -257,7 +255,6 @@
 
       for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
-          // Scale it up for better OCR clarity
           const viewport = page.getViewport({ scale: 2.0 }); 
           
           const canvas = document.createElement('canvas');
@@ -267,47 +264,92 @@
 
           await page.render({ canvasContext: ctx, viewport: viewport }).promise;
 
-          // Pass the rendered canvas picture to Tesseract
           console.log("Running OCR on page " + i);
           const { data: { text } } = await Tesseract.recognize(canvas, 'eng');
-          fullText += text + " ";
+          fullText += text + "\n";
       }
 
       processExtractedText(fullText);
   }
 
-  // --- IMAGE TO OCR (BONUS FEATURE) ---
+  // --- IMAGE TO OCR ---
   async function parseImageWithOCR(file) {
       console.log("Running OCR on Image");
       const { data: { text } } = await Tesseract.recognize(file, 'eng');
       processExtractedText(text);
   }
 
-  // --- REGEX BRAIN (FOR OCR TEXT) ---
+  // --- SMART LINE-SCANNING ENGINE ---
   function processExtractedText(text) {
-      console.log("OCR OUTPUT:", text); // Helpful if you need to debug later
-      const cleanText = text.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+      console.log("OCR RAW TEXT:\n", text);
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
       
-      const dateMatch = cleanText.match(/\b(?:\d{4}[-/]\d{2}[-/]\d{2}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\w{3}\s\d{1,2},?\s\d{4})\b/);
-      // Looser Regex to catch OCR mistakes like "Subtota1" or missing colons
-      const subtotalMatch = cleanText.match(/(?:Subtotal|Sub-total)[\s:$]*([0-9,]+\.\d{2})/i);
-      const taxMatch = cleanText.match(/(?:Tax|GST|HST|VAT)[\s:$]*([0-9,]+\.\d{2})/i);
-      const totalMatch = cleanText.match(/(?:Total|Amount Due|Balance)[\s:$]*([0-9,]+\.\d{2})/i);
+      // 1. DATE FORMATTER (Normalized to DD-MM-YYYY)
+      let isoDate = new Date().toISOString().split('T')[0]; // Default sorting date
+      let displayDate = "Unidentified Date";
+      
+      // Look for standard textual dates (May 8, 2026) or numeric (2026-05-08)
+      const dateRegex = /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b|\b\d{4}[-/]\d{2}[-/]\d{2}\b/i;
+      for (const line of lines) {
+          const match = line.match(dateRegex);
+          if (match) {
+              const parsedDate = new Date(match[0]);
+              if (!isNaN(parsedDate)) {
+                  isoDate = parsedDate.toISOString().split('T')[0];
+                  // Format as DD-MM-YYYY
+                  const dd = String(parsedDate.getDate()).padStart(2, '0');
+                  const mm = String(parsedDate.getMonth() + 1).padStart(2, '0');
+                  const yyyy = parsedDate.getFullYear();
+                  displayDate = `${dd}-${mm}-${yyyy}`;
+                  break;
+              }
+          }
+      }
 
-      const dateStr = dateMatch ? dateMatch[0] : new Date().toISOString().split('T')[0];
-      const subtotal = subtotalMatch ? parseFloat(subtotalMatch[1].replace(/,/g, '')) : 0.00;
-      const tax = taxMatch ? parseFloat(taxMatch[1].replace(/,/g, '')) : 0.00;
-      const total = totalMatch ? parseFloat(totalMatch[1].replace(/,/g, '')) : (subtotal + tax);
+      // 2. VENDOR EXTRACTION (Grab the first valid business name line)
+      let vendorName = "Unidentified Vendor";
+      for (const line of lines) {
+          // Skip obvious non-vendor lines
+          if (!/^(invoice|receipt|date|page|bill to|ship to|amount|tax|total)/i.test(line) && line.length > 3) {
+              vendorName = line.replace(/[^a-zA-Z0-9\s&.,-]/g, '').substring(0, 40).trim();
+              break;
+          }
+      }
 
-      let vendorName = "Unknown Vendor";
-      const vendorMatch = cleanText.match(/(?:Vendor|From|Billed By)[\s:]+([A-Za-z0-9\s]+?)(?=\s[A-Z0-9]|$)/i);
-      if (vendorMatch) vendorName = vendorMatch[1].trim();
+      // 3. SMART AMOUNT EXTRACTOR (Reads matching lines, grabs the LAST monetary value)
+      const extractLastAmount = (regex) => {
+          for (let i = lines.length - 1; i >= 0; i--) { // Read bottom up to catch final totals
+              if (regex.test(lines[i])) {
+                  const amounts = lines[i].match(/[0-9,]+\.\d{2}/g);
+                  if (amounts) {
+                      return parseFloat(amounts[amounts.length - 1].replace(/,/g, ''));
+                  }
+              }
+          }
+          return 0.00;
+      };
+
+      const subtotal = extractLastAmount(/subtotal|sub-total|total excluding/i);
+      const tax = extractLastAmount(/tax|gst|hst|vat/i);
+      // Fallback: If total isn't explicitly found, calculate it.
+      let total = extractLastAmount(/^total$|amount due|balance due|total(?!\sexcluding)/i);
+      if (total === 0.00 && (subtotal > 0 || tax > 0)) {
+          total = subtotal + tax;
+      }
+
+      // 4. FALLBACK DESCRIPTION
+      const description = vendorName !== "Unidentified Vendor" 
+          ? `Auto-Parsed: ${vendorName} Document` 
+          : "Manual Review Required";
 
       appState.invoices.push({
-          date: dateStr,
+          rawDate: isoDate,        // For charting & sorting
+          displayDate: displayDate, // For table UI DD-MM-YYYY
           vendor: vendorName,
-          description: `OCR Scan: ${vendorName !== "Unknown Vendor" ? vendorName : "Receipt"}`,
-          subtotal, tax, total
+          description: description,
+          subtotal: subtotal,
+          tax: tax,
+          total: total
       });
 
       renderUI();
@@ -322,18 +364,20 @@
 
       let totalInvoiced = 0, totalTax = 0;
       const vendors = new Set();
-      appState.invoices.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      // Sort using the raw ISO date so math works
+      appState.invoices.sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));
       
       tableBody.innerHTML = "";
       appState.invoices.forEach(inv => {
           totalInvoiced += inv.total;
           totalTax += inv.tax;
-          vendors.add(inv.vendor);
+          if (inv.vendor !== "Unidentified Vendor") vendors.add(inv.vendor);
 
           tableBody.insertAdjacentHTML('beforeend', `
               <tr class="border-t border-white/5 hover:bg-white/[0.02] transition">
-                  <td class="px-5 py-3.5 text-zinc-300 font-mono text-xs">${inv.date}</td>
-                  <td class="px-5 py-3.5 text-zinc-200 font-medium">${inv.vendor}</td>
+                  <td class="px-5 py-3.5 text-zinc-300 font-mono text-xs">${inv.displayDate}</td>
+                  <td class="px-5 py-3.5 ${inv.vendor === 'Unidentified Vendor' ? 'text-rose-400' : 'text-zinc-200'} font-medium">${inv.vendor}</td>
                   <td class="px-5 py-3.5 text-zinc-400">${inv.description}</td>
                   <td class="px-5 py-3.5 text-zinc-300 text-right font-mono tabular">$${inv.subtotal.toFixed(2)}</td>
                   <td class="px-5 py-3.5 text-zinc-400 text-right font-mono tabular">$${inv.tax.toFixed(2)}</td>
@@ -359,12 +403,14 @@
   function updateCharts() {
       const monthly = {}, vendors = {};
       appState.invoices.forEach(inv => {
-          const d = new Date(inv.date);
+          const d = new Date(inv.rawDate);
           const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
           if (!monthly[k]) monthly[k] = { label: d.toLocaleString('default', { month: 'short', year: 'numeric' }), total: 0 };
           monthly[k].total += inv.total;
-          if (!vendors[inv.vendor]) vendors[inv.vendor] = 0;
-          vendors[inv.vendor] += inv.total;
+          if (inv.vendor !== "Unidentified Vendor") {
+              if (!vendors[inv.vendor]) vendors[inv.vendor] = 0;
+              vendors[inv.vendor] += inv.total;
+          }
       });
 
       const mKeys = Object.keys(monthly).sort();
@@ -377,12 +423,18 @@
   }
 
   document.getElementById('btn-mock-data').addEventListener('click', () => {
-      appState.invoices.push({ date: '2026-05-15', vendor: 'Printify', description: 'Mock Data Load', subtotal: 150.00, tax: 19.50, total: 169.50 });
+      appState.invoices.push({ 
+          rawDate: '2026-05-15', 
+          displayDate: '15-05-2026',
+          vendor: 'Printify', 
+          description: 'Auto-Parsed: Printify Document', 
+          subtotal: 150.00, tax: 19.50, total: 169.50 
+      });
       renderUI();
   });
 
   document.getElementById('btn-export-csv').addEventListener('click', () => {
-      const rows = appState.invoices.map(i => `${i.date},"${i.vendor}","${i.description}",${i.subtotal},${i.tax},${i.total}`);
+      const rows = appState.invoices.map(i => `${i.displayDate},"${i.vendor}","${i.description}",${i.subtotal},${i.tax},${i.total}`);
       const link = document.createElement('a');
       link.href = URL.createObjectURL(new Blob([['Date,Vendor,Description,Subtotal,Tax,Total', ...rows].join('\n')], { type: 'text/csv' }));
       link.download = 'InvoiceParsimus_OCR_Export.csv';
