@@ -422,14 +422,31 @@
       vendorChartInstance.update();
   }
 
-  document.getElementById('btn-mock-data').addEventListener('click', () => {
-      appState.invoices.push({ 
-          rawDate: '2026-05-15', 
-          displayDate: '15-05-2026',
-          vendor: 'Printify', 
-          description: 'Auto-Parsed: Printify Document', 
-          subtotal: 150.00, tax: 19.50, total: 169.50 
+document.getElementById('btn-mock-data').addEventListener('click', () => {
+      // Helper function to generate a random dollar amount between a min and max
+      const randomAmount = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(2));
+
+      // We map over the array to inject random math before pushing it to the table
+      const mockData = [
+          { rawDate: '2026-05-15', displayDate: '15-05-2026', vendor: 'Printify', description: 'Desk Mat Fulfillment - AtelierKYU' },
+          { rawDate: '2026-05-12', displayDate: '12-05-2026', vendor: 'Midjourney', description: 'AI Image Generation Sub' },
+          { rawDate: '2026-04-28', displayDate: '28-04-2026', vendor: 'Notion', description: 'Workspace Plus' },
+          { rawDate: '2026-04-15', displayDate: '15-04-2026', vendor: 'ElevenLabs', description: 'Creator Audio API' },
+          { rawDate: '2026-03-20', displayDate: '20-03-2026', vendor: 'n8n', description: 'Workflow Automation Cloud' },
+          { rawDate: '2026-03-10', displayDate: '10-03-2026', vendor: 'Yokohama Motors', description: 'Suzuki Carry Import Parts' }
+      ].map(inv => {
+          const generatedSubtotal = randomAmount(30, 250); // Generates a random subtotal between $30 and $250
+          const generatedTax = parseFloat((generatedSubtotal * 0.13).toFixed(2)); // Calculates 13% tax based on the random subtotal
+          
+          return {
+              ...inv,
+              subtotal: generatedSubtotal,
+              tax: generatedTax,
+              total: parseFloat((generatedSubtotal + generatedTax).toFixed(2))
+          };
       });
+      
+      appState.invoices = [...appState.invoices, ...mockData];
       renderUI();
   });
 
