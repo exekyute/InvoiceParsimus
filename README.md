@@ -18,11 +18,11 @@ InvoiceParsimus is a lightweight, single-file web application designed to extrac
 
 ## ⚠️ Current Scope & Limitations
 
-As a strictly client-side application, InvoiceParsimus prioritizes privacy over heavy server-side AI processing. Because of this architecture, users should be aware of the following:
+As a strictly client-side application, InvoiceParsimus prioritizes privacy and hosting simplicity over heavy server-side AI processing. 
 
-* **Stylized Fonts:** The Tesseract OCR engine performs best on standard, highly legible text. Highly stylized, heavily branded, or handwritten invoices may result in garbled text extraction.
-* **Non-Standard Layouts:** The Regex engine expects standard invoice layouts. If a document places totals in highly unusual locations or omits clear labels, the parser may fail to extract the exact amounts.
-* **Manual Review:** This tool is designed to drastically speed up data entry, but it is not infallible. Always briefly verify the extracted ledger amounts against your original document before exporting the final CSV. 
+* **Invoice Formatting:** The line-scanning parser is explicitly tuned for standard corporate invoice layouts. It hunts for standard professional attributes (like "Amount Due", "Subtotal", and "Tax"). If an invoice places totals in highly unusual locations or omits clear labels, the engine may require a quick manual review.
+* **Stylized Fonts:** The Tesseract OCR engine performs best on standard, clear text. Highly stylized corporate logos or heavily branded headers may occasionally obscure perfect vendor name extraction.
+* **The Browser Architecture Choice:** I chose a 100% client-side setup because running this strictly as a static page keeps the app free to host and ensures user data never leaves their device. Utilizing cloud AI APIs would require exposing private API keys in the public frontend source code, so relying on localized OCR and smart text-matching was the most secure approach for this framework.
 
 ## 🗺️ Future Roadmap: Moving Beyond Regex
 
