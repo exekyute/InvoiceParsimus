@@ -8,8 +8,7 @@
 <!-- ============================================================
      DEPENDENCIES
      Tailwind CDN for utility classes + Google Fonts for typography.
-     Inter handles UI text; JetBrains Mono is reserved for numeric
-     values (balances, counters) to give the fintech feel.
+     Inter handles UI text; JetBrains Mono is reserved for numeric.
 ============================================================ -->
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,25 +18,21 @@
 <!-- PDF.js (pdfjs-dist) Library for client-side PDF parsing -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
-    // Configure the worker for PDF.js to operate correctly in the browser
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 </script>
 
+<!-- Chart.js Library for dynamic visual analytics -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <!-- ============================================================
      CUSTOM STYLES
-     A small layer of CSS that Tailwind doesn't cover natively:
-     font wiring, decorative backdrop grid, keyframe animations
-     (pulse + shimmer), scrollbar theming, and interactive
-     micro-effects on cards and the dropzone.
 ============================================================ -->
 <style>
-  /* --- Base typography + color scheme --- */
   :root { color-scheme: dark; }
   html, body { font-family: 'Inter', system-ui, sans-serif; }
   .font-mono { font-family: 'JetBrains Mono', monospace; }
   .tabular { font-variant-numeric: tabular-nums; }
 
-  /* --- Decorative grid backdrop (masked to fade out) --- */
   .bg-grid {
     background-image:
       linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
@@ -47,7 +42,6 @@
     -webkit-mask-image: radial-gradient(ellipse at top, rgba(0,0,0,0.9), transparent 70%);
   }
 
-  /* --- Animations: status dot + skeleton row shimmer --- */
   @keyframes pulse-dot { 0%,100% { opacity: 1; transform: scale(1);} 50% { opacity: .35; transform: scale(.85);} }
   .pulse-dot { animation: pulse-dot 2.2s ease-in-out infinite; }
 
@@ -58,13 +52,11 @@
     animation: shimmer 3s linear infinite;
   }
 
-  /* --- Themed scrollbar to match the dark surface --- */
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 8px; }
   ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
 
-  /* --- Micro-interactions: stat card lift + dropzone stripes --- */
   .card { transition: transform .25s ease, border-color .25s ease, background .25s ease; }
   .card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.12); }
 
@@ -81,9 +73,7 @@
 </head>
 <body class="bg-slate-950 text-zinc-100 antialiased min-h-screen relative overflow-x-hidden">
 
-<!-- ============================================================
-     AMBIENT BACKDROP
-============================================================ -->
+<!-- AMBIENT BACKDROP -->
 <div class="fixed inset-0 pointer-events-none -z-10">
   <div class="absolute -top-40 -left-32 w-[34rem] h-[34rem] rounded-full bg-violet-600/15 blur-3xl"></div>
   <div class="absolute top-1/3 -right-32 w-[30rem] h-[30rem] rounded-full bg-sky-600/10 blur-3xl"></div>
@@ -91,9 +81,7 @@
   <div class="absolute inset-0 bg-grid"></div>
 </div>
 
-<!-- ============================================================
-     HEADER
-============================================================ -->
+<!-- HEADER -->
 <header class="sticky top-0 z-40 border-b border-white/5 bg-slate-950/70 backdrop-blur-xl">
   <div class="max-w-7xl mx-auto px-6 py-3.5 flex items-center justify-between gap-4">
     <div class="flex items-center gap-3">
@@ -105,7 +93,7 @@
       </div>
       <div class="leading-tight">
         <h1 class="font-semibold tracking-tight text-[15px]">InvoiceParsimus</h1>
-        <p class="text-[11px] text-zinc-500">Invoice Data Extractor · v0.2</p>
+        <p class="text-[11px] text-zinc-500">Invoice Data Extractor · v0.3</p>
       </div>
     </div>
 
@@ -127,9 +115,7 @@
   </div>
 </header>
 
-<!-- ============================================================
-     MAIN CONTENT
-============================================================ -->
+<!-- MAIN CONTENT -->
 <main class="max-w-7xl mx-auto px-6 py-10 space-y-8">
 
   <!-- TITLE ROW -->
@@ -151,12 +137,9 @@
     </div>
   </section>
 
-  <!-- ============================================================
-       STATS CARDS (Updated for Invoice Metrics)
-  ============================================================ -->
+  <!-- STATS CARDS -->
   <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-
-    <!-- Total Invoiced (CAD) -->
+    <!-- Total Invoiced -->
     <div class="card relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-900/40 border border-white/5 p-5">
       <div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-violet-500/10 blur-2xl"></div>
       <div class="relative">
@@ -173,7 +156,7 @@
       </div>
     </div>
 
-    <!-- Total Tax Paid (GST/HST) -->
+    <!-- Total Tax Paid -->
     <div class="card relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-900/40 border border-white/5 p-5">
       <div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-rose-500/10 blur-2xl"></div>
       <div class="relative">
@@ -226,8 +209,35 @@
   </section>
 
   <!-- ============================================================
-       DROPZONE (Configured for PDFs)
+       STAGE 3: VISUAL ANALYTICS (CHART.JS)
   ============================================================ -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    
+    <!-- Monthly Spend Trend Chart -->
+    <div class="card rounded-2xl bg-zinc-900/50 border border-white/5 p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-zinc-200">Monthly Spend Trend</h3>
+        <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/5 text-zinc-400">OVER TIME</span>
+      </div>
+      <div class="relative h-64 w-full">
+        <canvas id="spendChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Vendor Distribution Pie Chart -->
+    <div class="card rounded-2xl bg-zinc-900/50 border border-white/5 p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-zinc-200">Vendor Distribution</h3>
+        <span class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/5 text-zinc-400">BY TOTAL ($)</span>
+      </div>
+      <div class="relative h-64 w-full">
+        <canvas id="vendorChart"></canvas>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- DROPZONE -->
   <section>
     <div class="flex items-center justify-between mb-3">
       <div>
@@ -265,26 +275,14 @@
     </div>
   </section>
 
-  <!-- ============================================================
-       INVOICE TABLE
-  ============================================================ -->
+  <!-- INVOICE TABLE -->
   <section class="rounded-2xl bg-zinc-900/50 border border-white/5 overflow-hidden">
-
-    <!-- Toolbar -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 border-b border-white/5">
       <div class="flex items-center gap-3">
         <h3 class="font-semibold text-zinc-100">Parsed Invoices</h3>
         <span class="text-[11px] font-mono px-2 py-0.5 rounded-md bg-white/5 border border-white/5 text-zinc-400" id="table-entry-count">0 entries</span>
       </div>
-      <div class="flex items-center gap-2">
-        <div class="relative">
-          <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input placeholder="Search invoices…" class="bg-white/[0.04] border border-white/10 rounded-lg pl-9 pr-3 py-1.5 text-sm w-56 placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/40 focus:bg-white/[0.06] transition">
-        </div>
-      </div>
     </div>
-
-    <!-- Table -->
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead>
@@ -298,7 +296,6 @@
           </tr>
         </thead>
         <tbody id="invoice-table-body">
-          <!-- Empty state -->
           <tr id="empty-state-row">
             <td colspan="6" class="px-6 py-20">
               <div class="flex flex-col items-center text-center">
@@ -315,14 +312,11 @@
         </tbody>
       </table>
     </div>
-
   </section>
 
 </main>
 
-<!-- ============================================================
-     FOOTER
-============================================================ -->
+<!-- FOOTER -->
 <footer class="border-t border-white/5 mt-12">
   <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-zinc-500">
     <div class="flex items-center gap-2">
@@ -330,7 +324,7 @@
       <span>InvoiceParsimus &copy; 2026 · Built for clarity</span>
     </div>
     <div class="flex items-center gap-4 font-mono">
-      <span>v0.2.0-engine</span>
+      <span>v0.3.0-analytics</span>
       <span class="text-zinc-600">·</span>
       <span>local-only</span>
     </div>
@@ -338,12 +332,11 @@
 </footer>
 
 <!-- ============================================================
-     APPLICATION LOGIC (THE "BRAIN")
+     APPLICATION LOGIC
 ============================================================ -->
 <script>
   /**
    * STATE MANAGEMENT
-   * Holds the master array of extracted invoice objects.
    */
   const appState = {
       invoices: []
@@ -354,6 +347,119 @@
   const fileInput = document.getElementById('file-input');
   const btnMockData = document.getElementById('btn-mock-data');
   const tableBody = document.getElementById('invoice-table-body');
+
+  // Chart instances
+  let spendChartInstance = null;
+  let vendorChartInstance = null;
+
+  // Modern UI Colors for Charts
+  const chartColors = ['#8b5cf6', '#0ea5e9', '#10b981', '#f43f5e', '#f59e0b', '#ec4899'];
+
+  /**
+   * INITIALIZE CHARTS (Empty State)
+   */
+  function initCharts() {
+      // Shared Dark Theme Defaults
+      Chart.defaults.color = '#a1a1aa'; // zinc-400
+      Chart.defaults.font.family = 'Inter';
+
+      // 1. Line Chart Initialization
+      const spendCtx = document.getElementById('spendChart').getContext('2d');
+      spendChartInstance = new Chart(spendCtx, {
+          type: 'line',
+          data: { labels: [], datasets: [] },
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                  y: { grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: true },
+                  x: { grid: { display: false } }
+              },
+              elements: { line: { tension: 0.4 } } // Smooth curves
+          }
+      });
+
+      // 2. Pie Chart Initialization
+      const vendorCtx = document.getElementById('vendorChart').getContext('2d');
+      vendorChartInstance = new Chart(vendorCtx, {
+          type: 'pie',
+          data: { labels: [], datasets: [] },
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                  legend: { position: 'right', labels: { boxWidth: 12 } }
+              },
+              // Add a dark border to segments to match the zinc-950 background
+              elements: { arc: { borderWidth: 2, borderColor: '#09090b' } }
+          }
+      });
+  }
+
+  /**
+   * DATA AGGREGATION & CHART UPDATING
+   * Feeds the parsed `appState.invoices` into the Chart.js instances.
+   */
+  function updateCharts() {
+      // 1. Dictionaries for grouping
+      const monthlyTotals = {};
+      const vendorTotals = {};
+
+      // 2. Aggregate logic
+      appState.invoices.forEach(inv => {
+          // Group by Month (YYYY-MM to sort chronologically easily)
+          const d = new Date(inv.date);
+          const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+          const monthLabel = d.toLocaleString('default', { month: 'short', year: 'numeric' });
+
+          if (!monthlyTotals[monthKey]) {
+              monthlyTotals[monthKey] = { label: monthLabel, total: 0 };
+          }
+          monthlyTotals[monthKey].total += inv.total;
+
+          // Group by Vendor
+          if (!vendorTotals[inv.vendor]) {
+              vendorTotals[inv.vendor] = 0;
+          }
+          vendorTotals[inv.vendor] += inv.total;
+      });
+
+      // 3. Format Data for Line Chart (Time Series)
+      const sortedMonths = Object.keys(monthlyTotals).sort();
+      const lineLabels = sortedMonths.map(k => monthlyTotals[k].label);
+      const lineData = sortedMonths.map(k => monthlyTotals[k].total);
+
+      spendChartInstance.data = {
+          labels: lineLabels,
+          datasets: [{
+              label: 'Total Spend ($)',
+              data: lineData,
+              borderColor: '#8b5cf6', // Violet-500
+              backgroundColor: 'rgba(139, 92, 246, 0.1)',
+              borderWidth: 2,
+              fill: true,
+              pointBackgroundColor: '#8b5cf6',
+          }]
+      };
+      spendChartInstance.update();
+
+      // 4. Format Data for Pie Chart (Categorical)
+      const sortedVendors = Object.entries(vendorTotals).sort((a, b) => b[1] - a[1]);
+      const pieLabels = sortedVendors.map(v => v[0]);
+      const pieData = sortedVendors.map(v => v[1]);
+
+      vendorChartInstance.data = {
+          labels: pieLabels,
+          datasets: [{
+              data: pieData,
+              backgroundColor: chartColors,
+              hoverOffset: 4
+          }]
+      };
+      vendorChartInstance.update();
+  }
+
 
   /**
    * DRAG, DROP & FILE HANDLING
@@ -377,16 +483,12 @@
 
   function handleFiles(files) {
       Array.from(files).forEach(file => {
-          if (file.type === 'application/pdf') {
-              parsePDF(file);
-          }
+          if (file.type === 'application/pdf') parsePDF(file);
       });
   }
 
   /**
-   * PDF.JS PROCESSING ENGINE
-   * Converts the uploaded PDF into an ArrayBuffer, feeds it to pdfjsLib,
-   * iterates through pages, and passes raw text to the Regex engine.
+   * PDF.JS PROCESSING
    */
   async function parsePDF(file) {
       const reader = new FileReader();
@@ -413,16 +515,11 @@
   }
 
   /**
-   * REGEX PARSING ENGINE
-   * Scans raw text for Subtotal, Tax, Total, Dates, and generic Vendors.
+   * REGEX PARSING
    */
   function extractInvoiceDataWithRegex(text) {
       const cleanText = text.replace(/\s+/g, ' ');
-
-      // Common Date Formats (YYYY-MM-DD or MM/DD/YYYY)
       const dateMatch = cleanText.match(/\b(?:\d{4}[-/]\d{2}[-/]\d{2}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\b/);
-      
-      // Financial amounts
       const subtotalMatch = cleanText.match(/Subtotal[\s:$]*([0-9,]+\.\d{2})/i);
       const taxMatch = cleanText.match(/(?:Tax|GST|HST)[\s:$]*([0-9,]+\.\d{2})/i);
       const totalMatch = cleanText.match(/(?:Total|Amount Due|Balance Due)[\s:$]*([0-9,]+\.\d{2})/i);
@@ -432,7 +529,6 @@
       const tax = taxMatch ? parseFloat(taxMatch[1].replace(/,/g, '')) : 0.00;
       const total = totalMatch ? parseFloat(totalMatch[1].replace(/,/g, '')) : (subtotal + tax);
 
-      // Attempt to find a vendor string
       let vendorName = "Unknown Vendor";
       const vendorMatch = cleanText.match(/Vendor[:\s]+([A-Za-z\s]+)(?=\b[A-Z])/i);
       if (vendorMatch) vendorName = vendorMatch[1].trim();
@@ -449,7 +545,6 @@
 
   /**
    * UI RENDER ENGINE
-   * Updates dashboard totals and re-renders the grouped table preserving styles.
    */
   function renderUI() {
       if (appState.invoices.length === 0) return;
@@ -458,9 +553,7 @@
       let totalTax = 0;
       const vendors = new Set();
 
-      // Sort invoices by date descending
       appState.invoices.sort((a, b) => new Date(b.date) - new Date(a.date));
-
       tableBody.innerHTML = "";
       let currentMonth = "";
 
@@ -469,7 +562,6 @@
           totalTax += inv.tax;
           vendors.add(inv.vendor);
 
-          // Grouping logic (Inject Month Header)
           const invoiceMonth = new Date(inv.date).toLocaleString('default', { month: 'long', year: 'numeric' });
           if (invoiceMonth !== currentMonth) {
               currentMonth = invoiceMonth;
@@ -481,7 +573,6 @@
               tableBody.insertAdjacentHTML('beforeend', monthRow);
           }
 
-          // Generate Data Row (keeping dark theme classes)
           const row = `
               <tr class="border-t border-white/5 hover:bg-white/[0.02] transition">
                   <td class="px-5 py-3.5 text-zinc-300 font-mono text-xs">${inv.date}</td>
@@ -495,14 +586,14 @@
           tableBody.insertAdjacentHTML('beforeend', row);
       });
 
-      // Update Dashboard Tracking Cards
       document.getElementById('dash-total').innerText = `$${totalInvoiced.toLocaleString('en-CA', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
       document.getElementById('dash-tax').innerText = `$${totalTax.toLocaleString('en-CA', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
       document.getElementById('dash-count').innerText = appState.invoices.length;
       document.getElementById('dash-vendors').innerText = vendors.size;
-      
-      // Update entry count in toolbar
       document.getElementById('table-entry-count').innerText = `${appState.invoices.length} entries`;
+
+      // Trigger Chart.js refresh
+      updateCharts();
   }
 
   /**
@@ -513,14 +604,18 @@
           { date: '2023-11-05', vendor: 'Vercel Inc.', description: 'Pro Team Hosting', subtotal: 100.00, tax: 13.00, total: 113.00 },
           { date: '2023-11-12', vendor: 'GitHub', description: 'Copilot Subscription', subtotal: 45.50, tax: 5.92, total: 51.42 },
           { date: '2023-10-21', vendor: 'AWS', description: 'S3 & Compute Usage', subtotal: 1200.00, tax: 156.00, total: 1356.00 },
-          { date: '2023-10-02', vendor: 'Figma', description: 'Design Software', subtotal: 100.00, tax: 13.00, total: 113.00 }
+          { date: '2023-10-02', vendor: 'Figma', description: 'Design Software', subtotal: 100.00, tax: 13.00, total: 113.00 },
+          { date: '2023-09-15', vendor: 'Vercel Inc.', description: 'Pro Team Hosting', subtotal: 100.00, tax: 13.00, total: 113.00 },
+          { date: '2023-09-08', vendor: 'Notion', description: 'Workspace Plus', subtotal: 80.00, tax: 10.40, total: 90.40 }
       ];
       
       appState.invoices = [...appState.invoices, ...mockData];
       renderUI();
   });
 
-</script>
+  // Boot the charts on page load
+  window.addEventListener('DOMContentLoaded', initCharts);
 
+</script>
 </body>
 </html>
