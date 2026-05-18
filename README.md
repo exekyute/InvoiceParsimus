@@ -12,13 +12,25 @@ InvoiceParsimus is a lightweight, single-file web application designed to extrac
 * **Interactive Analytics:** Utilizes `Chart.js` to render dynamic visual breakdowns of monthly spend trends and vendor distribution.
 * **One-Click Export:** Compiles all processed ledger data into a clean `.csv` file for easy import into accounting software or Excel.
 
+## 🚀 Live Demo
+
+[**Launch InvoiceParsimus**](https://exekyute.github.io/InvoiceParsimus/) 
+
 ## ⚠️ Current Scope & Limitations
 
 As a strictly client-side application, InvoiceParsimus prioritizes privacy over heavy server-side AI processing. Because of this architecture, users should be aware of the following:
 
 * **Stylized Fonts:** The Tesseract OCR engine performs best on standard, highly legible text. Highly stylized, heavily branded, or handwritten invoices may result in garbled text extraction.
-* **Non-Standard Layouts:** The Regex engine expects standard invoice layouts. If a document places totals in highly unusual locations or omits clear labels (like "Tax" or "Total"), the parser may fail to extract the exact amounts.
+* **Non-Standard Layouts:** The Regex engine expects standard invoice layouts. If a document places totals in highly unusual locations or omits clear labels, the parser may fail to extract the exact amounts.
 * **Manual Review:** This tool is designed to drastically speed up data entry, but it is not infallible. Always briefly verify the extracted ledger amounts against your original document before exporting the final CSV. 
+
+## 🗺️ Future Roadmap: Moving Beyond Regex
+
+While Regex is incredibly fast and operates securely in the browser, it is structurally rigid. Future iterations of InvoiceParsimus aim to replace hardcoded text-matching with smarter parsing techniques to handle edge-case formatting:
+
+* **In-Browser SLMs (Small Language Models):** Exploring libraries like `Transformers.js` or `WebLLM` to process OCR text contextually directly within the browser, maintaining the strict zero-server privacy policy.
+* **Client-Side NLP:** Integrating lightweight Natural Language Processing engines (e.g., `Compromise.js`) to intelligently identify organizations and monetary values through grammar rather than strict formatting.
+* **Serverless API Integration:** Evaluating a shift to a serverless architecture (like Vercel Edge Functions) to securely utilize LLM APIs (Anthropic, OpenAI) for foolproof structured data extraction without exposing API keys on the frontend.
 
 ## 🛠️ Tech Stack
 
@@ -27,10 +39,6 @@ As a strictly client-side application, InvoiceParsimus prioritizes privacy over 
 * **PDF.js (via CDN):** For client-side document reading.
 * **Tesseract.js (via CDN):** For client-side Optical Character Recognition.
 * **Chart.js (via CDN):** For interactive data visualization.
-
-## 🚀 Live Demo
-
-[**Launch InvoiceParsimus**](https://exekyute.github.io/InvoiceParsimus/)
 
 ## 💡 How to Use
 
