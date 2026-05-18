@@ -5,28 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>InvoiceParsimus — Invoice Data Extractor</title>
 
-<!-- ============================================================
-     DEPENDENCIES
-     Tailwind CDN for utility classes + Google Fonts for typography.
-     Inter handles UI text; JetBrains Mono is reserved for numeric.
-============================================================ -->
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-<!-- PDF.js (pdfjs-dist) Library for client-side PDF parsing -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 </script>
 
-<!-- Chart.js Library for dynamic visual analytics -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- ============================================================
-     CUSTOM STYLES
-============================================================ -->
 <style>
   :root { color-scheme: dark; }
   html, body { font-family: 'Inter', system-ui, sans-serif; }
@@ -73,7 +63,6 @@
 </head>
 <body class="bg-slate-950 text-zinc-100 antialiased min-h-screen relative overflow-x-hidden">
 
-<!-- AMBIENT BACKDROP -->
 <div class="fixed inset-0 pointer-events-none -z-10">
   <div class="absolute -top-40 -left-32 w-[34rem] h-[34rem] rounded-full bg-violet-600/15 blur-3xl"></div>
   <div class="absolute top-1/3 -right-32 w-[30rem] h-[30rem] rounded-full bg-sky-600/10 blur-3xl"></div>
@@ -81,7 +70,6 @@
   <div class="absolute inset-0 bg-grid"></div>
 </div>
 
-<!-- HEADER -->
 <header class="sticky top-0 z-40 border-b border-white/5 bg-slate-950/70 backdrop-blur-xl">
   <div class="max-w-7xl mx-auto px-6 py-3.5 flex items-center justify-between gap-4">
     <div class="flex items-center gap-3">
@@ -97,13 +85,6 @@
       </div>
     </div>
 
-    <nav class="hidden md:flex items-center gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/5">
-      <a class="px-3.5 py-1.5 text-sm rounded-lg bg-white/[0.06] text-white border border-white/10">Dashboard</a>
-      <a class="px-3.5 py-1.5 text-sm rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] cursor-pointer">Invoices</a>
-      <a class="px-3.5 py-1.5 text-sm rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] cursor-pointer">Reports</a>
-      <a class="px-3.5 py-1.5 text-sm rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] cursor-pointer">Vendors</a>
-    </nav>
-
     <div class="flex items-center gap-2">
       <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
         <span class="relative flex w-1.5 h-1.5">
@@ -115,10 +96,8 @@
   </div>
 </header>
 
-<!-- MAIN CONTENT -->
 <main class="max-w-7xl mx-auto px-6 py-10 space-y-8">
 
-  <!-- TITLE ROW -->
   <section class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
     <div>
       <p class="text-xs uppercase tracking-[0.18em] text-zinc-500 mb-2">Overview</p>
@@ -126,7 +105,6 @@
       <p class="text-sm text-zinc-400 mt-1.5">Extract and sort PDF invoices directly in your browser.</p>
     </div>
     <div class="flex items-center gap-2">
-      <!-- ID ADDED HERE FOR EXPORT -->
       <button id="btn-export-csv" class="px-4 py-2 text-sm rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-zinc-200 transition flex items-center gap-2">
         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Export CSV
@@ -138,7 +116,6 @@
     </div>
   </section>
 
-  <!-- STATS CARDS -->
   <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
     <div class="card relative overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-900/90 to-zinc-900/40 border border-white/5 p-5">
       <div class="absolute -top-12 -right-12 w-36 h-36 rounded-full bg-violet-500/10 blur-2xl"></div>
@@ -205,7 +182,6 @@
     </div>
   </section>
 
-  <!-- VISUAL ANALYTICS -->
   <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <div class="card rounded-2xl bg-zinc-900/50 border border-white/5 p-5">
       <div class="flex items-center justify-between mb-4">
@@ -228,7 +204,6 @@
     </div>
   </section>
 
-  <!-- DROPZONE -->
   <section>
     <div class="flex items-center justify-between mb-3">
       <div>
@@ -266,7 +241,6 @@
     </div>
   </section>
 
-  <!-- INVOICE TABLE -->
   <section class="rounded-2xl bg-zinc-900/50 border border-white/5 overflow-hidden">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 border-b border-white/5">
       <div class="flex items-center gap-3">
@@ -307,7 +281,6 @@
 
 </main>
 
-<!-- FOOTER -->
 <footer class="border-t border-white/5 mt-12">
   <div class="max-w-7xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-zinc-500">
     <div class="flex items-center gap-2">
@@ -322,9 +295,6 @@
   </div>
 </footer>
 
-<!-- ============================================================
-     APPLICATION LOGIC
-============================================================ -->
 <script>
   /**
    * STATE MANAGEMENT
@@ -347,10 +317,6 @@
 
   /**
    * DATA EXPORT (CSV COMPILATION)
-   * 1. Constructs standard CSV headers.
-   * 2. Iterates through the global appState array.
-   * 3. Quotes text strings to escape stray commas within descriptions or vendors.
-   * 4. Converts the string buffer to a Blob and initiates an automated <a> download sequence.
    */
   btnExportCsv.addEventListener('click', () => {
       if (appState.invoices.length === 0) {
@@ -358,12 +324,9 @@
           return;
       }
 
-      // Build Headers
       const headers = ['Date', 'Vendor', 'Description', 'Subtotal', 'Tax', 'Total'];
       
-      // Build Rows
       const csvRows = appState.invoices.map(inv => {
-          // Wrap string fields in double quotes and escape existing quotes to prevent breaking the CSV formatting
           const safeVendor = `"${inv.vendor.replace(/"/g, '""')}"`;
           const safeDesc = `"${inv.description.replace(/"/g, '""')}"`;
           
@@ -377,10 +340,7 @@
           ].join(',');
       });
 
-      // Combine headers and rows with line breaks
       const csvString = [headers.join(','), ...csvRows].join('\n');
-
-      // Create a virtual file via Blob and trigger the download
       const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       
@@ -525,7 +485,7 @@
   }
 
   /**
-   * REGEX PARSING
+   * REGEX PARSING & DYNAMIC DESCRIPTION
    */
   function extractInvoiceDataWithRegex(text) {
       const cleanText = text.replace(/\s+/g, ' ');
@@ -543,10 +503,15 @@
       const vendorMatch = cleanText.match(/Vendor[:\s]+([A-Za-z\s]+)(?=\b[A-Z])/i);
       if (vendorMatch) vendorName = vendorMatch[1].trim();
 
+      // Dynamically generated description based on vendor discovery
+      const autoDescription = vendorName !== "Unknown Vendor" 
+          ? `Auto-Parsed: ${vendorName} Receipt` 
+          : "Extracted Invoice Record";
+
       return {
           date: dateStr,
           vendor: vendorName,
-          description: "PDF Extraction",
+          description: autoDescription,
           subtotal: subtotal,
           tax: tax,
           total: total
@@ -607,12 +572,12 @@
    */
   btnMockData.addEventListener('click', () => {
       const mockData = [
-          { date: '2023-11-05', vendor: 'Vercel Inc.', description: 'Pro Team Hosting', subtotal: 100.00, tax: 13.00, total: 113.00 },
-          { date: '2023-11-12', vendor: 'GitHub', description: 'Copilot Subscription', subtotal: 45.50, tax: 5.92, total: 51.42 },
-          { date: '2023-10-21', vendor: 'AWS', description: 'S3 & Compute Usage', subtotal: 1200.00, tax: 156.00, total: 1356.00 },
-          { date: '2023-10-02', vendor: 'Figma', description: 'Design Software', subtotal: 100.00, tax: 13.00, total: 113.00 },
-          { date: '2023-09-15', vendor: 'Vercel Inc.', description: 'Pro Team Hosting', subtotal: 100.00, tax: 13.00, total: 113.00 },
-          { date: '2023-09-08', vendor: 'Notion', description: 'Workspace Plus', subtotal: 80.00, tax: 10.40, total: 90.40 }
+          { date: '2026-05-15', vendor: 'Printify', description: 'Desk Mat Fulfillment - AtelierKYU', subtotal: 150.00, tax: 19.50, total: 169.50 },
+          { date: '2026-05-12', vendor: 'Midjourney', description: 'AI Image Generation Sub', subtotal: 45.50, tax: 5.92, total: 51.42 },
+          { date: '2026-04-28', vendor: 'Notion', description: 'Workspace Plus', subtotal: 80.00, tax: 10.40, total: 90.40 },
+          { date: '2026-04-15', vendor: 'ElevenLabs', description: 'Creator Audio API', subtotal: 22.00, tax: 2.86, total: 24.86 },
+          { date: '2026-03-20', vendor: 'n8n', description: 'Workflow Automation Cloud', subtotal: 50.00, tax: 6.50, total: 56.50 },
+          { date: '2026-03-10', vendor: 'Yokohama Motors', description: 'Suzuki Carry Import Parts', subtotal: 350.00, tax: 45.50, total: 395.50 }
       ];
       
       appState.invoices = [...appState.invoices, ...mockData];
